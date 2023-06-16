@@ -1,0 +1,9 @@
+%YAML:1.0
+
+cam0_calib: "/euroc/cam0_mei.yaml"
+cam1_calib: "/euroc/cam1_mei.yaml"
+
+#feature traker paprameters
+max_cnt: 150            # max feature number in feature tracking
+min_dist: 30            # min distance between two features 
+F_threshold: 1.0        # ransac threshold (pixel)
