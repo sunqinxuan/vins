@@ -13,6 +13,7 @@
 ************************************************/
 
 #include "tools/file_manager.hpp"
+
 #include <boost/filesystem.hpp>
 
 namespace vslam {

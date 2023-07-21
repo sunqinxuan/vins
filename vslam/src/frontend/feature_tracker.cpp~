@@ -25,24 +25,23 @@ void FeatureTracker::readCameraIntrinsics(const std::string &cam0_file,
                                           const std::string &cam1_file) {
   // for (size_t i = 0; i < calib_file.size(); i++)
   //{
-  INFO("reading paramerter of camera %s", cam0_file.c_str());
+  // INFO("reading paramerter of camera %s", cam0_file.c_str());
   camera0 = CameraFactory::instance()->generateCameraFromYamlFile(cam0_file);
-  INFO("reading paramerter of camera %s", cam1_file.c_str());
+  // INFO("reading paramerter of camera %s", cam1_file.c_str());
   camera1 = CameraFactory::instance()->generateCameraFromYamlFile(cam1_file);
   // m_camera.push_back(camera);
   //}
   // if (calib_file.size() == 2)
   // stereo_cam = 1;
-   std::string c0 = camera0->parametersToString();
-   std::string c1 = camera1->parametersToString();
-   std::cout << "cam0: " << std::endl<< c0 << std::endl;
-   std::cout << "cam1: " << std::endl<< c1 << std::endl;
+  // std::string c0 = camera0->parametersToString();
+  // std::string c1 = camera1->parametersToString();
+  // std::cout << "cam0: " << std::endl<< c0 << std::endl;
+  // std::cout << "cam1: " << std::endl<< c1 << std::endl;
 }
 
-bool FeatureTracker::trackImage(
-    double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,
-    std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>>
-        &featureFrame) {
+bool FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
+                                const cv::Mat &_img1,
+                                PointsTrack &featureFrame) {
   TicToc t_r;
   cur_time = _cur_time;
   cur_img = _img;
@@ -111,7 +110,7 @@ bool FeatureTracker::trackImage(
     reduceVector(cur_pts, status);
     reduceVector(ids, status);
     reduceVector(track_cnt, status);
-    INFO("temporal optical flow costs: ", t_o.toc(),"ms");
+    // INFO("temporal optical flow costs: ", t_o.toc(),"ms");
     // printf("track cnt %d\n", (int)ids.size());
   }
 
@@ -120,12 +119,12 @@ bool FeatureTracker::trackImage(
 
   if (1) {
     // rejectWithF();
-    INFO("set mask begins");
+    // INFO("set mask begins");
     TicToc t_m;
     setMask();
-    INFO("set mask costs ", t_m.toc(),"ms");
+    // INFO("set mask costs ", t_m.toc(),"ms");
 
-    INFO("detect feature begins");
+    // INFO("detect feature begins");
     TicToc t_t;
     int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
     if (n_max_cnt > 0) {
@@ -137,23 +136,23 @@ bool FeatureTracker::trackImage(
                               MIN_DIST, mask);
     } else
       n_pts.clear();
-    INFO("detect feature costs ", t_t.toc(),"ms");
+    // INFO("detect feature costs ", t_t.toc(),"ms");
 
     for (auto &p : n_pts) {
       cur_pts.push_back(p);
       ids.push_back(n_id++);
       track_cnt.push_back(1);
     }
-     printf("feature cnt after add %d\n", (int)ids.size());
+    // printf("feature cnt after add %d\n", (int)ids.size());
   }
 
-   //std::string c0 = camera0->parametersToString();
-   //std::cout << "camera0: " << std::endl<< c0 << std::endl;
+  // std::string c0 = camera0->parametersToString();
+  // std::cout << "camera0: " << std::endl<< c0 << std::endl;
 
   cur_un_pts = undistortedPts(cur_pts, camera0);
   pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-  // if (!_img1.empty() && stereo_cam)
+   if (!_img1.empty())// && stereo_cam)
   {
     ids_right.clear();
     cur_right_pts.clear();
@@ -161,7 +160,7 @@ bool FeatureTracker::trackImage(
     right_pts_velocity.clear();
     cur_un_right_pts_map.clear();
     if (!cur_pts.empty()) {
-       printf("stereo image; track feature on right image\n");
+      // printf("stereo image; track feature on right image\n");
       std::vector<cv::Point2f> reverseLeftPts;
       std::vector<uchar> status, statusRightLeft;
       std::vector<float> err;
@@ -334,11 +333,11 @@ FeatureTracker::undistortedPts(std::vector<cv::Point2f> &pts,
   for (unsigned int i = 0; i < pts.size(); i++) {
     Eigen::Vector2d a(pts[i].x, pts[i].y);
     Eigen::Vector3d b;
-//		std::cout<<"a: "<<a.transpose()<<std::endl;
-   //std::string c0 = cam->parametersToString();
-   //std::cout << "cam: " << std::endl<< c0 << std::endl;
+    //		std::cout<<"a: "<<a.transpose()<<std::endl;
+    // std::string c0 = cam->parametersToString();
+    // std::cout << "cam: " << std::endl<< c0 << std::endl;
     cam->liftProjective(a, b);
-//		std::cout<<"b: "<<b.transpose()<<std::endl;
+    //		std::cout<<"b: "<<b.transpose()<<std::endl;
     un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
   }
   return un_pts;

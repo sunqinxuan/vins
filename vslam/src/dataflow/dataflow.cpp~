@@ -28,23 +28,24 @@ DataFlow::DataFlow(ros::NodeHandle &nh, std::string work_space_path) {
   //}
 
   std::string config_file_path = work_space_path + "/config/dataflow.yaml";
-	cv::FileStorage config(config_file_path,cv::FileStorage::READ);
+  cv::FileStorage config(config_file_path, cv::FileStorage::READ);
   std::string cam0_topic, cam1_topic, imu_topic;
-	config_node["cam0_topic"]>>cam0_topic;
-	config_node["cam1_topic"]>>cam1_topic;
-  config_node["imu0_topic"]>>imu_topic;
-	config.release();
+  config["cam0_topic"] >> cam0_topic;
+  config["cam1_topic"] >> cam1_topic;
+  config["imu0_topic"] >> imu_topic;
+  config.release();
 
   std::cout << "cam0_topic: " << cam0_topic << std::endl;
   std::cout << "cam1_topic: " << cam1_topic << std::endl;
   std::cout << "imu_topic: " << imu_topic << std::endl;
 
-  //YAML::Node config_node = YAML::LoadFile(config_file_path);
-  //std::string cam0_topic =
+  // YAML::Node config_node = YAML::LoadFile(config_file_path);
+  // std::string cam0_topic =
   //    config_node["topics"]["cam0_topic"].as<std::string>();
-  //std::string cam1_topic =
+  // std::string cam1_topic =
   //    config_node["topics"]["cam1_topic"].as<std::string>();
-  //std::string imu_topic = config_node["topics"]["imu0_topic"].as<std::string>();
+  // std::string imu_topic =
+  // config_node["topics"]["imu0_topic"].as<std::string>();
 
   sub_cam0_ = nh.subscribe(cam0_topic, 100, &DataFlow::cam0_callback, this);
   sub_cam1_ = nh.subscribe(cam1_topic, 100, &DataFlow::cam1_callback, this);
@@ -141,33 +142,33 @@ bool DataFlow::getImageData(double &time, cv::Mat &img0, cv::Mat &img1) {
   std::unique_lock<std::mutex> lock(buff_mutex_);
   time = img0_buf_.front().first;
   img0 = img0_buf_.front().second;
-  img1 = img0_buf_.front().second;
+  img1 = img1_buf_.front().second;
   img0_buf_.pop_front();
   img1_buf_.pop_front();
   return true;
 }
 
-bool DataFlow::getPreintIMUData(
-    const double time,
-    std::pair<double,
-              std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>>>
-        &imu_interval) {
-  if (preint_imu_buf_.empty())
-    return false;
-  if (time < preint_imu_buf_.front().first - 0.01)
-    return false;
-
-  std::unique_lock<std::mutex> lock(buff_mutex_);
-  for (size_t i = 0; i < preint_imu_buf_.size(); i++) {
-    if (fabs(time - preint_imu_buf_.at(i).first) < 0.01) {
-      imu_interval = preint_imu_buf_.at(i);
-      for (size_t j = 0; j <= i; j++)
-        preint_imu_buf_.pop_front();
-      return true;
-    }
-  }
-  return false;
-}
+// bool DataFlow::getPreintIMUData(
+//    const double time,
+//    std::pair<double,
+//              std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>>>
+//        &imu_interval) {
+//  if (preint_imu_buf_.empty())
+//    return false;
+//  if (time < preint_imu_buf_.front().first - 0.01)
+//    return false;
+//
+//  std::unique_lock<std::mutex> lock(buff_mutex_);
+//  for (size_t i = 0; i < preint_imu_buf_.size(); i++) {
+//    if (fabs(time - preint_imu_buf_.at(i).first) < 0.01) {
+//      imu_interval = preint_imu_buf_.at(i);
+//      for (size_t j = 0; j <= i; j++)
+//        preint_imu_buf_.pop_front();
+//      return true;
+//    }
+//  }
+//  return false;
+//}
 
 void DataFlow::process() {
   // std::cout << "process begin" << std::endl;
@@ -264,9 +265,9 @@ bool DataFlow::handleData() {
     imu_msg_buf_.pop_front();
   }
 
-  std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>> imu_interval;
-  getIMUInterval(prev_time_, cur_time_, imu_interval);
-  preint_imu_buf_.push_back(std::make_pair(cur_time_, imu_interval));
+  // std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>> imu_interval;
+  // getIMUInterval(prev_time_, cur_time_, imu_interval);
+  // preint_imu_buf_.push_back(std::make_pair(cur_time_, imu_interval));
 
   prev_time_ = cur_time_;
   // buff_mutex_.unlock();
@@ -282,11 +283,11 @@ bool DataFlow::getIMUInterval(
     printf("no imu data in the buffer!\n");
     return false;
   }
-  // printf("get imu from %f %f\n", t0, t1);
+  printf("get imu from %f %f\n", t0, t1);
   double imu_front_time = imu_buf_.front().first;
   double imu_back_time = imu_buf_.back().first;
-  // printf("imu fornt time %f   imu end time %f\n", imu_front_time,
-  //       imu_back_time);
+  printf("imu fornt time %f   imu end time %f\n", imu_front_time,
+         imu_back_time);
   // for (int i = 0; i < imu_buf_.size(); i++) {
   //  std::cout << std::fixed << "\t" << imu_buf_.at(i).first << std::endl;
   //}

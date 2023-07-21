@@ -39,10 +39,9 @@ void FeatureTracker::readCameraIntrinsics(const std::string &cam0_file,
   // std::cout << "cam1: " << std::endl<< c1 << std::endl;
 }
 
-bool FeatureTracker::trackImage(
-    double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,
-    std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>>
-        &featureFrame) {
+bool FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
+                                const cv::Mat &_img1,
+                                PointsTrack &featureFrame) {
   TicToc t_r;
   cur_time = _cur_time;
   cur_img = _img;
@@ -153,7 +152,7 @@ bool FeatureTracker::trackImage(
   cur_un_pts = undistortedPts(cur_pts, camera0);
   pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-  // if (!_img1.empty() && stereo_cam)
+  // if (!_img1.empty())// && stereo_cam)
   {
     ids_right.clear();
     cur_right_pts.clear();
@@ -238,7 +237,7 @@ bool FeatureTracker::trackImage(
     featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
   }
 
-  // if (!_img1.empty() && stereo_cam)
+  // if (!_img1.empty())// && stereo_cam)
   {
     for (size_t i = 0; i < ids_right.size(); i++) {
       int feature_id = ids_right[i];

@@ -26,4 +26,18 @@ body_T_cam1: !!opencv-matrix
           -0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038,
           0, 0, 0, 1]
 
+window_size: 10
 
+#imu parameters       The more accurate parameters you provide, the better performance
+acc_n: 0.1          # accelerometer measurement noise standard deviation. 
+gyr_n: 0.01         # gyroscope measurement noise standard deviation.     
+acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
+gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     
+gravity: 9.81007     # gravity magnitude
+
+focal_length: 460.0
+keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
+
+max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
+max_num_iterations: 8   # max solver itrations, to guarantee real time
+minimizer_progress_to_stdout: 0

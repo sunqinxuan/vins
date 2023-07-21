@@ -14,12 +14,12 @@ file(GLOB_RECURSE SRC_DATAFLOW ./*.cpp)
 add_library(dataflow SHARED ${SRC_DATAFLOW})
 target_link_libraries(dataflow ${LIB_DATAFLOW})
 
-INSTALL(TARGETS dataflow
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
-        )
-
-INSTALL(DIRECTORY 
-        ${CMAKE_INSTALL_PREFIX}/../include/dataflow
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
-        ) 
+#INSTALL(TARGETS dataflow
+#        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
+#        )
+#
+#INSTALL(DIRECTORY 
+#        ${CMAKE_INSTALL_PREFIX}/../include/dataflow
+#        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
+#        ) 
 

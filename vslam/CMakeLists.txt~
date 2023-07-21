@@ -82,7 +82,8 @@ catkin_package(
    sensor_msgs
 )
 
-include_directories(include ${catkin_INCLUDE_DIRS}) #include
+include_directories(src ${catkin_INCLUDE_DIRS}) #include
+include_directories(src/camera_models ${catkin_INCLUDE_DIRS}) #include
 
 #load thrid party library
 #link_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/lib)
@@ -122,9 +123,11 @@ include_directories(include ${catkin_INCLUDE_DIRS}) #include
    set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
    add_subdirectory(${PROJECT_SOURCE_DIR}/src/tools)
+   add_subdirectory(${PROJECT_SOURCE_DIR}/src/camera_models)
+	 #add_subdirectory(${PROJECT_SOURCE_DIR}/src/factor)
+
    add_subdirectory(${PROJECT_SOURCE_DIR}/src/dataflow)
    add_subdirectory(${PROJECT_SOURCE_DIR}/src/frontend)
-
    #add_subdirectory(${PROJECT_SOURCE_DIR}/src/models)
    #add_subdirectory(${PROJECT_SOURCE_DIR}/src/sensor_data)
    #add_subdirectory(${PROJECT_SOURCE_DIR}/src/publisher)
@@ -144,7 +147,7 @@ include_directories(include ${catkin_INCLUDE_DIRS}) #include
 
 
 
-add_executable(slam_node src/node/slam_node.cpp)
+add_executable(slam_node src/slam_node.cpp)
 add_dependencies(slam_node ${catkin_EXPORTED_TARGETS})
 target_link_libraries(slam_node dataflow frontend ${catkin_LIBRARIES})
 
