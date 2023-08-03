@@ -21,6 +21,7 @@
 
 #include "tools/converter.hpp"
 #include "tools/geometry.hpp"
+#include "tools/tic_toc.hpp"
 
 namespace vslam {
 

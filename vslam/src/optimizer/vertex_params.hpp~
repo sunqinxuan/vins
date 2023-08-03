@@ -29,7 +29,7 @@ using Vector1d = Eigen::Matrix<double, 1, 1>;
 
 class VertexParamNavState {
 public:
-  VertexParamNavState() = delete;
+  VertexParamNavState() {}
   VertexParamNavState(const NavState &nav_state, const IMUBias &bias,
                       bool fix = false)
       : fixed(fix) {
@@ -91,7 +91,7 @@ public:
 class VertexParamMargin {
 public:
   VertexParamMargin() = delete;
-  VertexParamMargin() {}
+  // VertexParamMargin() {}
 };
 
 class PoseLocalParameterization : public ceres::LocalParameterization {

@@ -99,7 +99,8 @@ FrontEnd::FrontEnd(ros::NodeHandle &nh, std::string work_space_path) {
 
   int num_iter = config["max_num_iterations"];
   double max_time = config["max_solver_time"];
-  bool optimizer_debug = config["minimizer_progress_to_stdout"];
+  bool optimizer_debug; // = config["minimizer_progress_to_stdout"];
+  config["minimizer_progress_to_stdout"] >> optimizer_debug;
 
   config.release();
 
@@ -238,6 +239,8 @@ void FrontEnd::run() {
 
       // process image
       processFrame(feature.first, feature.second);
+      if (flag_)
+        break;
 
       prev_time_ = cur_time_;
 
@@ -349,6 +352,7 @@ void FrontEnd::processFrame(const double &time, const PointsTrack &points) {
       }
 
       optimize();
+      flag_ = true;
 
       // optimization();
       // updateLatestStates();
@@ -370,50 +374,76 @@ void FrontEnd::processFrame(const double &time, const PointsTrack &points) {
 
 void FrontEnd::optimize() {
   for (int i = 0; i < frame_cnt_ + 1; i++) {
-    graph_optimizer_ptr_->addVertexNavState(i, nav_states_[i]);
+    graph_optimizer_ptr_->addVertexNavState(i, nav_states_[i], imu_bias_[i]);
   }
   graph_optimizer_ptr_->addVertexCameraEx(0, Tic0_calib_, true);
   graph_optimizer_ptr_->addVertexCameraEx(1, Tic1_calib_, true);
+
+  // TODO
+  // graph_optimizer_ptr_->addFactorMargin();
+
+  for (int i = 0; i < frame_cnt_; i++) {
+    int j = i + 1;
+    graph_optimizer_ptr_->addFactorIMU(i, j, imu_preintegrations_[j]);
+  }
 
   Eigen::VectorXd depth_vec = feature_manager_ptr_->getDepthVector();
   for (int i = 0; i < feature_manager_ptr_->getFeatureCount(); i++) {
     graph_optimizer_ptr_->addVertexFeature(i, depth_vec(i));
   }
 
-  // graph_optimizer_ptr_->addFactorMargin();
-
-  for (int i = 0; i < frame_cnt_; i++) {
-    int j = i + 1;
-    graph_optimizer_ptr_->addFactorIMU(i, j, imu_preintegrations_[i]);
-  }
+  std::fstream fp;
+  fp.open("/home/sun/vins_sqx/debug.txt", std::ios::out);
 
   int f_m_cnt = 0;
   int feature_index = -1;
   for (auto &it_per_id : feature_manager_ptr_->feature) {
+    fp << std::endl
+       << f_m_cnt << "  **************************************************"
+       << std::endl;
     it_per_id.used_num = it_per_id.feature_per_frame.size();
     if (it_per_id.used_num < 4)
       continue;
+    fp << "it_per_id.used_num = " << it_per_id.used_num << std::endl;
 
     ++feature_index;
+    fp << "feature_index = " << feature_index << std::endl;
 
     int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+    fp << "imu_i = " << imu_i << std::endl;
 
-    Vector3d pts_i = it_per_id.feature_per_frame[0].point;
+    Eigen::Vector3d pts_i = it_per_id.feature_per_frame[0].point;
+    fp << "pts_i = " << pts_i.transpose() << std::endl;
 
     for (auto &it_per_frame : it_per_id.feature_per_frame) {
       imu_j++;
       Eigen::Vector3d pts_j = it_per_frame.point;
       Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
+      fp << "\timu_j = " << imu_j << std::endl;
+      fp << "\tpts_j = " << pts_j.transpose() << std::endl;
+      fp << "\tpts_j_right = " << pts_j_right.transpose() << std::endl;
+      fp << "\tit_per_id.feature_per_frame[0].velocity = "
+         << it_per_id.feature_per_frame[0].velocity.transpose() << std::endl;
+      fp << "\tit_per_frame.velocity = " << it_per_frame.velocity.transpose()
+         << std::endl;
+      fp << "\tit_per_frame.velocityRight = "
+         << it_per_frame.velocityRight.transpose() << std::endl;
+      fp << "\tit_per_id.feature_per_frame[0].cur_td = "
+         << it_per_id.feature_per_frame[0].cur_td << std::endl;
+      fp << "\tit_per_frame.cur_td = " << it_per_frame.cur_td << std::endl;
       if (imu_i != imu_j) {
+				fp<<"\t\t=============add 21 ================"<<std::endl;
         graph_optimizer_ptr_->addFactorProject21(
             imu_i, imu_j, feature_index, pts_i, pts_j,
             it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
             it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+				fp<<"\t\t=============add 22 ================"<<std::endl;
         graph_optimizer_ptr_->addFactorProject22(
             imu_i, imu_j, feature_index, pts_i, pts_j_right,
             it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
             it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
       } else {
+				fp<<"\t\t=============add 12 ================"<<std::endl;
         graph_optimizer_ptr_->addFactorProject12(
             feature_index, pts_i, pts_j_right,
             it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
@@ -422,24 +452,59 @@ void FrontEnd::optimize() {
       f_m_cnt++;
     }
   }
+  fp.close();
   DEBUG("visual measurement count: ", f_m_cnt);
 
   if (!graph_optimizer_ptr_->optimize()) {
     WARNING("optimization failure!");
   }
 
-  //line1158: Estimator::double2vector();
-  //graph_optimizer_ptr_->getOptimizedStates();
+  // line1158: Estimator::double2vector();
+  updateOptimizedStates();
 
-	if(frame_cnt_<window_size_) return;
+  if (frame_cnt_ < window_size_)
+    return;
 
-	//line1165: 
-	if(margin_old_)
-	{
-	}
-	else
-	{
-	}
+  // TODO
+  // line1165:
+  if (margin_old_) {
+    std::shared_ptr<MarginalizationInfo> margin_info =
+        std::make_shared<MarginalizationInfo>();
+  } else {
+  }
+}
+
+void FrontEnd::updateOptimizedStates() {
+  Eigen::Vector3d org_R0 = Converter::R2ypr(nav_states_[0].rotation());
+  Eigen::Vector3d org_P0 = nav_states_[0].position();
+
+  // TODO: estimator.cpp line893
+  // if(failure_occur) {}
+
+  NavState nav_state_0;
+  graph_optimizer_ptr_->getNavState(0, nav_state_0);
+  Eigen::Vector3d org_R00 = Converter::R2ypr(nav_state_0.rotation());
+
+  double d_yaw = org_R0.x() - org_R00.x();
+  Eigen::Matrix3d dR0 = Converter::ypr2R(Eigen::Vector3d(d_yaw, 0, 0));
+  if (abs(abs(org_R0.y()) - 90) < 1.0 || abs(abs(org_R00.y()) - 90) < 1.0) {
+    WARNING("euler singular point!");
+    dR0 = nav_states_[0].rotation() * nav_state_0.rotation();
+  }
+
+  for (int i = 0; i <= window_size_; i++) {
+    graph_optimizer_ptr_->getNavStateBias(i, nav_states_[i], imu_bias_[i], dR0,
+                                          org_P0);
+  }
+
+  graph_optimizer_ptr_->getCameraEx(0, Tic0_calib_);
+  graph_optimizer_ptr_->getCameraEx(1, Tic1_calib_);
+
+  Eigen::VectorXd depth_vec = feature_manager_ptr_->getDepthVector();
+  for (int i = 0; i < feature_manager_ptr_->getFeatureCount(); i++) {
+    graph_optimizer_ptr_->getFeature(i, depth_vec(i));
+  }
+  feature_manager_ptr_->setDepth(depth_vec);
 }
 
 void FrontEnd::startTracking() {

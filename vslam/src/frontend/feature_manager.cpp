@@ -438,6 +438,23 @@ Eigen::VectorXd FeatureManager::getDepthVector() {
   return dep_vec;
 }
 
+void FeatureManager::setDepth(const Eigen::VectorXd &x) {
+  int feature_index = -1;
+  for (auto &it_per_id : feature) {
+    it_per_id.used_num = it_per_id.feature_per_frame.size();
+    if (it_per_id.used_num < 4)
+      continue;
+
+    it_per_id.estimated_depth = 1.0 / x(++feature_index);
+    // INFO("feature id %d , start_frame %d, depth %f ", it_per_id.feature_id,
+    //     it_per_id.start_frame, it_per_id.estimated_depth);
+    if (it_per_id.estimated_depth < 0) {
+      it_per_id.solve_flag = 2;
+    } else
+      it_per_id.solve_flag = 1;
+  }
+}
+
 // FeatureManager::FeatureManager(Matrix3d _Rs[])
 //    : Rs(_Rs)
 //{
@@ -481,26 +498,7 @@ frame_count_l, int frame_count_r)
     return corres;
 }
 
-void FeatureManager::setDepth(const VectorXd &x)
-{
-    int feature_index = -1;
-    for (auto &it_per_id : feature)
-    {
-        it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4)
-            continue;
 
-        it_per_id.estimated_depth = 1.0 / x(++feature_index);
-        //ROS_INFO("feature id %d , start_frame %d, depth %f ",
-it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth); if
-(it_per_id.estimated_depth < 0)
-        {
-            it_per_id.solve_flag = 2;
-        }
-        else
-            it_per_id.solve_flag = 1;
-    }
-}
 
 void FeatureManager::removeFailures()
 {

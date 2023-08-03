@@ -36,7 +36,7 @@
 
 namespace vslam {
 
-Eigen::Vector3d G{0.0, 0.0, 9.8}; //TODO
+Eigen::Vector3d G{0.0, 0.0, 9.8}; // TODO
 
 class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> {
 public:
@@ -84,9 +84,10 @@ public:
       Eigen::Matrix3d dv_dba = imu_preint_->getJacobian(6, 9);
       Eigen::Matrix3d dv_dbg = imu_preint_->getJacobian(6, 12);
 
-      //if (imu_preint_->jacobian.maxCoeff() > 1e8 || imu_preint_->jacobian.minCoeff() < -1e8) 
-      if (imu_preint_->getJacMaxCoeff() > 1e8 || imu_preint_->getJacMinCoeff() < -1e8) 
-			{
+      // if (imu_preint_->jacobian.maxCoeff() > 1e8 ||
+      // imu_preint_->jacobian.minCoeff() < -1e8)
+      if (imu_preint_->getJacMaxCoeff() > 1e8 ||
+          imu_preint_->getJacMinCoeff() < -1e8) {
         WARNING("numerical unstable in preintegration");
         // std::cout << imu_preint_->jacobian << std::endl;
         ///                ROS_BREAK();
@@ -97,9 +98,8 @@ public:
             jacobian_pose_i(jacobians[0]);
         jacobian_pose_i.setZero();
 
-        //jacobian_pose_i.block<3, 3>(0, 0) =
-        jacobian_pose_i.block<3, 3>(0, 0) =
-            -Qi.inverse().toRotationMatrix();
+        // jacobian_pose_i.block<3, 3>(0, 0) =
+        jacobian_pose_i.block<3, 3>(0, 0) = -Qi.inverse().toRotationMatrix();
         jacobian_pose_i.block<3, 3>(0, 3) = Converter::skewSymmetric(
             Qi.inverse() * (0.5 * G * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt));
 

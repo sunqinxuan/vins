@@ -106,10 +106,10 @@ public:
                         Eigen::Matrix<double, 3, 4> &Pose1,
                         Eigen::Vector2d &point0, Eigen::Vector2d &point1,
                         Eigen::Vector3d &point_3d);
+  void setDepth(const Eigen::VectorXd &x);
   // vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int
   // frame_count_r);
   ////void updateDepth(const VectorXd &x);
-  // void setDepth(const VectorXd &x);
   // void removeFailures();
   // void clearDepth();
 

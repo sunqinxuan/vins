@@ -80,8 +80,8 @@ public:
   Eigen::Matrix3d getJacobian(const int d1, const int d2) const {
     return jacobian.block<3, 3>(d1, d2);
   }
-	double getJacMaxCoeff() const {return jacobian.maxCoeff();}
-	double getJacMinCoeff() const {return jacobian.minCoeff();}
+  double getJacMaxCoeff() const { return jacobian.maxCoeff(); }
+  double getJacMinCoeff() const { return jacobian.minCoeff(); }
   Eigen::Quaterniond getDeltaQ() const { return delta_q; }
   Eigen::Matrix<double, 15, 15> getCovariance() const { return covariance; }
   double getSumDt() const { return sum_dt; }

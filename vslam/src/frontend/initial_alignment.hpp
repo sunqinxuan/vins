@@ -35,7 +35,7 @@
 //#include "../factor/imu_factor.h"
 //#include "../utility/utility.h"
 //#include "../estimator/feature_manager.h"
-#include "factor/imu_preintegration.hpp"
+#include "optimizer/imu_preintegration.hpp"
 #include "tools/message_print.hpp"
 #include "tools/type_redefine.hpp"
 

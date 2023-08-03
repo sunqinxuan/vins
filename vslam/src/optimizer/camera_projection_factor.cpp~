@@ -50,7 +50,7 @@ ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(
 bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
-  // TicToc tic_toc;
+  TicToc tic_toc;
 
   Eigen::Vector3d tic(parameters[0][0], parameters[0][1], parameters[0][2]);
   Eigen::Quaterniond qic(parameters[0][6], parameters[0][3], parameters[0][4],
@@ -142,7 +142,7 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters,
           sqrt_info * velocity_j.head(2);
     }
   }
-  // sum_t += tic_toc.toc();
+  sum_t += tic_toc.toc();
 
   return true;
 }
@@ -225,11 +225,11 @@ void ProjectionOneFrameTwoCamFactor::check(double **parameters) {
     if (a == 0)
       tic += delta;
     else if (a == 1)
-      qic = qic * Rot::deltaQ(delta);
+      qic = qic * Converter::deltaQ(delta);
     else if (a == 2)
       tic2 += delta;
     else if (a == 3)
-      qic2 = qic2 * Rot::deltaQ(delta);
+      qic2 = qic2 * Converter::deltaQ(delta);
     else if (a == 4) {
       if (b == 0)
         inv_dep_i += delta.x();
@@ -263,7 +263,7 @@ void ProjectionOneFrameTwoCamFactor::check(double **parameters) {
   std::cout << num_jacobian.block<2, 1>(0, 13) << std::endl;
 }
 
-/*******************************************************************************************************************************************/
+/*****************************************************************************************/
 
 ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
     const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
@@ -293,7 +293,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
 bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
-  // TicToc tic_toc;
+  TicToc tic_toc;
   Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
   Eigen::Quaterniond Qi(parameters[0][6], parameters[0][3], parameters[0][4],
                         parameters[0][5]);
@@ -360,7 +360,7 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
       Eigen::Matrix<double, 3, 6> jaco_i;
       jaco_i.leftCols<3>() = ric.transpose() * Rj.transpose();
       jaco_i.rightCols<3>() = ric.transpose() * Rj.transpose() * Ri *
-                              -Converter::skewSymmetric(pts_imu_i);
+                              -Converter::skewSymmetric(pts_camera_i);
 
       jacobian_pose_i.leftCols<6>() = reduce * jaco_i;
       jacobian_pose_i.rightCols<1>().setZero();
@@ -373,7 +373,7 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
       Eigen::Matrix<double, 3, 6> jaco_j;
       jaco_j.leftCols<3>() = ric.transpose() * -Rj.transpose();
       jaco_j.rightCols<3>() =
-          ric.transpose() * Converter::skewSymmetric(pts_imu_j);
+          ric.transpose() * Converter::skewSymmetric(pts_camera_j);
 
       jacobian_pose_j.leftCols<6>() = reduce * jaco_j;
       jacobian_pose_j.rightCols<1>().setZero();
@@ -405,7 +405,7 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
                     sqrt_info * velocity_j.head(2);
     }
   }
-  // sum_t += tic_toc.toc();
+  sum_t += tic_toc.toc();
 
   return true;
 }
@@ -496,15 +496,15 @@ void ProjectionTwoFrameOneCamFactor::check(double **parameters) {
     if (a == 0)
       Pi += delta;
     else if (a == 1)
-      Qi = Qi * Rot::deltaQ(delta);
+      Qi = Qi * Converter::deltaQ(delta);
     else if (a == 2)
       Pj += delta;
     else if (a == 3)
-      Qj = Qj * Rot::deltaQ(delta);
+      Qj = Qj * Converter::deltaQ(delta);
     else if (a == 4)
       tic += delta;
     else if (a == 5)
-      qic = qic * Rot::deltaQ(delta);
+      qic = qic * Converter::deltaQ(delta);
     else if (a == 6 && b == 0)
       inv_dep_i += delta.x();
     else if (a == 6 && b == 1)
@@ -538,7 +538,7 @@ void ProjectionTwoFrameOneCamFactor::check(double **parameters) {
   std::cout << num_jacobian.block<2, 1>(0, 19) << std::endl;
 }
 
-/*******************************************************************************************************************************************/
+/********************************************************************************/
 
 ProjectionTwoFrameTwoCamFactor::ProjectionTwoFrameTwoCamFactor(
     const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
@@ -568,7 +568,7 @@ ProjectionTwoFrameTwoCamFactor::ProjectionTwoFrameTwoCamFactor(
 bool ProjectionTwoFrameTwoCamFactor::Evaluate(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
-  // TicToc tic_toc;
+  TicToc tic_toc;
   Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
   Eigen::Quaterniond Qi(parameters[0][6], parameters[0][3], parameters[0][4],
                         parameters[0][5]);
@@ -695,7 +695,7 @@ bool ProjectionTwoFrameTwoCamFactor::Evaluate(double const *const *parameters,
                     sqrt_info * velocity_j.head(2);
     }
   }
-  // sum_t += tic_toc.toc();
+  sum_t += tic_toc.toc();
 
   return true;
 }
@@ -803,19 +803,19 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters) {
     if (a == 0)
       Pi += delta;
     else if (a == 1)
-      Qi = Qi * Rot::deltaQ(delta);
+      Qi = Qi * Converter::deltaQ(delta);
     else if (a == 2)
       Pj += delta;
     else if (a == 3)
-      Qj = Qj * Rot::deltaQ(delta);
+      Qj = Qj * Converter::deltaQ(delta);
     else if (a == 4)
       tic += delta;
     else if (a == 5)
-      qic = qic * Rot::deltaQ(delta);
+      qic = qic * Converter::deltaQ(delta);
     else if (a == 6)
       tic2 += delta;
     else if (a == 7)
-      qic2 = qic2 * Rot::deltaQ(delta);
+      qic2 = qic2 * Converter::deltaQ(delta);
     else if (a == 8) {
       if (b == 0)
         inv_dep_i += delta.x();

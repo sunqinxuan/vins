@@ -22,6 +22,7 @@
 #include "optimizer/camera_projection_factor.hpp"
 #include "optimizer/imu_factor.hpp"
 #include "optimizer/imu_preintegration.hpp"
+#include "optimizer/marginalization_factor.hpp"
 #include "optimizer/vertex_params.hpp"
 #include "tools/geometry.hpp"
 #include "tools/message_print.hpp"
@@ -40,11 +41,11 @@ public:
 
   bool optimize();
 
-  void addVertexNavState(const int idx,const NavState &nav_state, const IMUBias &bias,
-                         bool fix = false);
+  void addVertexNavState(const int idx, const NavState &nav_state,
+                         const IMUBias &bias, bool fix = false);
   void addVertexCameraEx(const int idx, const Eigen::Isometry3d &Tic,
                          bool fix = false);
-void addVertexFeature(const int idx, const double val);
+  void addVertexFeature(const int idx, const double val);
 
   //	bool addFactorMargin();
   bool addFactorIMU(const int idx_pre, const int idx,
@@ -55,6 +56,26 @@ void addVertexFeature(const int idx, const double val);
                           const Eigen::Vector2d &vel_i,
                           const Eigen::Vector2d &vel_j, const double td_i,
                           const double td_j);
+  bool addFactorProject21(const int idx_i, const int idx_j, const int f_idx,
+                          const Eigen::Vector3d &pts_i,
+                          const Eigen::Vector3d &pts_j,
+                          const Eigen::Vector2d &vel_i,
+                          const Eigen::Vector2d &vel_j, const double td_i,
+                          const double td_j);
+  bool addFactorProject22(const int idx_i, const int idx_j, const int f_idx,
+                          const Eigen::Vector3d &pts_i,
+                          const Eigen::Vector3d &pts_j,
+                          const Eigen::Vector2d &vel_i,
+                          const Eigen::Vector2d &vel_j, const double td_i,
+                          const double td_j);
+
+  bool getNavStateBias(const int idx, NavState &nav_state, IMUBias &bias,
+                       const Eigen::Matrix3d &dR0,
+                       const Eigen::Vector3d &P0) const;
+  bool getNavStateBias(const int idx, NavState &nav_state, IMUBias &bias) const;
+  bool getNavState(const int idx, NavState &nav_state) const;
+  bool getCameraEx(const int idx, Eigen::Isometry3d &Tic) const;
+  bool getFeature(const int idx, double &val) const;
 
 private:
 private:

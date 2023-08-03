@@ -29,7 +29,7 @@ using Vector1d = Eigen::Matrix<double, 1, 1>;
 
 class VertexParamNavState {
 public:
-  VertexParamNavState() = delete;
+  VertexParamNavState() {}
   VertexParamNavState(const NavState &nav_state, const IMUBias &bias,
                       bool fix = false)
       : fixed(fix) {
@@ -56,7 +56,7 @@ public:
 
 class VertexParamCameraEx {
 public:
-  VertexParamCameraEx() = delete;
+  VertexParamCameraEx(){};
   VertexParamCameraEx(const Eigen::Isometry3d &Tic, bool fix = false)
       : fixed(fix) {
     pose(0) = Tic.translation().x();
@@ -77,7 +77,7 @@ public:
 
 class VertexParamFeature {
 public:
-  VertexParamFeature() = delete;
+  VertexParamFeature(){};
   VertexParamFeature(const double d, bool fix = false) : fixed(fix) {
     depth(0) = d;
   }

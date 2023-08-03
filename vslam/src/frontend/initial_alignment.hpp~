@@ -27,7 +27,7 @@
 #define VSLAM_INITIAL_ALIGNMENT_HPP_
 
 #include <eigen3/Eigen/Dense>
-#include <gtsam/navigation/CombinedImuFactor.h>
+//#include <gtsam/navigation/CombinedImuFactor.h>
 #include <iostream>
 #include <map>
 

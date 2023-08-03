@@ -40,4 +40,4 @@ keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
 
 max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time
-minimizer_progress_to_stdout: 0
+minimizer_progress_to_stdout: 1

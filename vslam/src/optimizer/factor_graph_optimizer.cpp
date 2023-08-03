@@ -46,6 +46,22 @@ bool FactorGraphOptimizer::optimize() {
     return false;
   }
 
+  DEBUG("before optimization");
+  DEBUG("vertices_nav_state_");
+  for (auto &v : vertices_nav_state_) {
+    std::cout << v.first << std::endl;
+    std::cout << v.second.pose.transpose() << std::endl;
+    std::cout << v.second.vel_bias.transpose() << std::endl;
+  }
+  DEBUG("vertices_camera_ex_");
+  for (auto &v : vertices_camera_ex_) {
+    std::cout << v.first << "\t" << v.second.pose.transpose() << std::endl;
+  }
+
+  for (auto &v : vertices_feature_) {
+    std::cout << v.first << "\t" << v.second.depth(0) << std::endl;
+  }
+
   ceres::Solver::Summary summary;
   ceres::Solver::Options options;
   options.max_num_iterations = max_num_iterations_;
@@ -60,20 +76,40 @@ bool FactorGraphOptimizer::optimize() {
     std::cout << summary.FullReport() << std::endl;
   DEBUG("Iterations: ", summary.iterations.size());
 
+  DEBUG("after optimization");
+  DEBUG("vertices_nav_state_");
+  for (auto &v : vertices_nav_state_) {
+    std::cout << v.first << std::endl;
+    std::cout << v.second.pose.transpose() << std::endl;
+    std::cout << v.second.vel_bias.transpose() << std::endl;
+  }
+  DEBUG("vertices_camera_ex_");
+  for (auto &v : vertices_camera_ex_) {
+    std::cout << v.first << "\t" << v.second.pose.transpose() << std::endl;
+  }
+
+  for (auto &v : vertices_feature_) {
+    std::cout << v.first << "\t" << v.second.depth(0) << std::endl;
+  }
+
   return summary.IsSolutionUsable();
 }
 
 void FactorGraphOptimizer::addVertexNavState(const int idx,
                                              const NavState &nav_state,
                                              const IMUBias &bias, bool fix) {
-  //vertices_nav_state_.insert(std::pair<int, VertexParamNavState>(
-      //idx, VertexParamNavState(nav_state, bias, fix)));
-  vertices_nav_state_.insert(std::make_pair(idx, VertexParamNavState(nav_state, bias, fix)));
+  // vertices_nav_state_.insert(std::pair<int, VertexParamNavState>(
+  // idx, VertexParamNavState(nav_state, bias, fix)));
+  vertices_nav_state_.insert(
+      std::make_pair(idx, VertexParamNavState(nav_state, bias, fix)));
 
   ceres::LocalParameterization *local_param = new PoseLocalParameterization();
   problem_->AddParameterBlock(vertices_nav_state_[idx].pose.data(), 7,
                               local_param);
   problem_->AddParameterBlock(vertices_nav_state_[idx].vel_bias.data(), 9);
+
+  /// DEBUG(idx, "\t", vertices_nav_state_[idx].pose.transpose());
+  // INFO(idx, "\t", vertices_nav_state_[idx].vel_bias.transpose());
 
   if (fix) {
     problem_->SetParameterBlockConstant(vertices_nav_state_[idx].pose.data());
@@ -100,12 +136,79 @@ void FactorGraphOptimizer::addVertexFeature(const int idx, const double val) {
       std::pair<int, VertexParamFeature>(idx, VertexParamFeature(val)));
 }
 
+bool FactorGraphOptimizer::getNavStateBias(const int idx, NavState &nav_state,
+                                           IMUBias &bias,
+                                           const Eigen::Matrix3d &dR0,
+                                           const Eigen::Vector3d &P0) const {
+  if (!getNavStateBias(idx, nav_state, bias))
+    return false;
+  auto it = vertices_nav_state_.begin();
+  Eigen::Vector3d p0(it->second.pose(0), it->second.pose(1),
+                     it->second.pose(2));
+  nav_state.setRotation(dR0 * nav_state.rotation());
+  nav_state.setPosition(dR0 * (nav_state.position() - p0) + P0);
+  nav_state.setVelocity(dR0 * nav_state.velocity());
+  return true;
+}
+bool FactorGraphOptimizer::getNavStateBias(const int idx, NavState &nav_state,
+                                           IMUBias &bias) const {
+  auto it = vertices_nav_state_.find(idx);
+  if (it == vertices_nav_state_.end())
+    return false;
+  Eigen::Quaterniond q(it->second.pose(6), it->second.pose(3),
+                       it->second.pose(4), it->second.pose(5));
+  Eigen::Vector3d p(it->second.pose(0), it->second.pose(1), it->second.pose(2));
+  Eigen::Vector3d v(it->second.vel_bias(0), it->second.vel_bias(1),
+                    it->second.vel_bias(2));
+  nav_state.setRotation(q.normalized().toRotationMatrix());
+  nav_state.setPosition(p);
+  nav_state.setVelocity(v);
+  bias = it->second.vel_bias.tail<6>();
+  return true;
+}
+
+bool FactorGraphOptimizer::getNavState(const int idx,
+                                       NavState &nav_state) const {
+  auto it = vertices_nav_state_.find(idx);
+  if (it == vertices_nav_state_.end())
+    return false;
+  Eigen::Quaterniond q(it->second.pose(6), it->second.pose(3),
+                       it->second.pose(4), it->second.pose(5));
+  Eigen::Vector3d p(it->second.pose(0), it->second.pose(1), it->second.pose(2));
+  Eigen::Vector3d v(it->second.vel_bias(0), it->second.vel_bias(1),
+                    it->second.vel_bias(2));
+  nav_state.setRotation(q.normalized().toRotationMatrix());
+  nav_state.setPosition(p);
+  nav_state.setVelocity(v);
+  return true;
+}
+
+bool FactorGraphOptimizer::getCameraEx(const int idx,
+                                       Eigen::Isometry3d &Tic) const {
+  auto it = vertices_camera_ex_.find(idx);
+  if (it == vertices_camera_ex_.end())
+    return false;
+  Eigen::Quaterniond q(it->second.pose(6), it->second.pose(3),
+                       it->second.pose(4), it->second.pose(5));
+  Eigen::Vector3d p(it->second.pose(0), it->second.pose(1), it->second.pose(2));
+  Tic.linear() = q.normalized().toRotationMatrix();
+  Tic.translation() = p;
+  return true;
+}
+
+bool FactorGraphOptimizer::getFeature(const int idx, double &val) const {
+  auto it = vertices_feature_.find(idx);
+  if (it == vertices_feature_.end())
+    return false;
+  val = it->second.depth(0);
+  return true;
+}
+
 // estimator.cpp
 // line 1068
 // TODO
-// bool FactorGraphOptimizer::addFactorMargin()
-//{
-//}
+// bool FactorGraphOptimizer::addFactorMargin(
+//    const std::shared_ptr<MarginalizationInfo> &margin_info) {}
 
 bool FactorGraphOptimizer::addFactorIMU(
     const int idx_pre, const int idx,
@@ -130,6 +233,7 @@ bool FactorGraphOptimizer::addFactorIMU(
                              vertices_nav_state_[idx_pre].vel_bias.data(),
                              vertices_nav_state_[idx].pose.data(),
                              vertices_nav_state_[idx].vel_bias.data());
+  return true;
 }
 
 bool FactorGraphOptimizer::addFactorProject12(
@@ -149,6 +253,7 @@ bool FactorGraphOptimizer::addFactorProject12(
       factor, loss_function_, vertices_camera_ex_[0].pose.data(),
       vertices_camera_ex_[1].pose.data(), vertices_feature_[f_idx].depth.data(),
       vertices_td_.data());
+  return true;
 }
 
 bool FactorGraphOptimizer::addFactorProject21(
@@ -180,6 +285,7 @@ bool FactorGraphOptimizer::addFactorProject21(
       vertices_nav_state_[idx_j].pose.data(),
       vertices_camera_ex_[0].pose.data(), vertices_feature_[f_idx].depth.data(),
       vertices_td_.data());
+  return true;
 }
 
 bool FactorGraphOptimizer::addFactorProject22(
@@ -211,6 +317,7 @@ bool FactorGraphOptimizer::addFactorProject22(
       vertices_nav_state_[idx_j].pose.data(),
       vertices_camera_ex_[0].pose.data(), vertices_camera_ex_[1].pose.data(),
       vertices_feature_[f_idx].depth.data(), vertices_td_.data());
+  return true;
 }
 
 } // namespace vslam

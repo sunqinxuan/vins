@@ -56,6 +56,9 @@ private:
   void processFrame(const double &time, const PointsTrack &feature_frame);
   void preintIMU(const std::vector<IMUMeasureTime> &imu_intv);
   void optimize();
+  void updateOptimizedStates();
+
+  bool flag_ = false;
 
 private:
   double cur_time_, prev_time_;

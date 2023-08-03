@@ -29,10 +29,11 @@
 //#include <gtsam/navigation/CombinedImuFactor.h>
 
 #include "dataflow/dataflow.hpp"
-#include "factor/imu_preintegration.hpp"
 #include "frontend/feature_manager.hpp"
 #include "frontend/feature_tracker.hpp"
 #include "frontend/initial_alignment.hpp"
+#include "optimizer/factor_graph_optimizer.hpp"
+#include "optimizer/imu_preintegration.hpp"
 #include "tools/converter.hpp"
 #include "tools/geometry.hpp"
 #include "tools/message_print.hpp"
@@ -54,7 +55,9 @@ private:
   void initIMUPose(std::vector<IMUMeasureTime> &imu_interv);
   void processFrame(const double &time, const PointsTrack &feature_frame);
   void preintIMU(const std::vector<IMUMeasureTime> &imu_intv);
-	void optimize();
+  void optimize();
+
+  bool flag_ = false;
 
 private:
   double cur_time_, prev_time_;
@@ -93,7 +96,7 @@ private:
   std::shared_ptr<FeatureTracker> feature_tracker_ptr_;
   std::shared_ptr<FeatureManager> feature_manager_ptr_;
   std::shared_ptr<InitialAlignment> initial_alignment_ptr_;
-	std::shared_ptr<FactorGraphOptimizer> graph_optimizer_ptr_;
+  std::shared_ptr<FactorGraphOptimizer> graph_optimizer_ptr_;
 };
 } // namespace vslam
 
