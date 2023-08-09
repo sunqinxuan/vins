@@ -17,6 +17,8 @@
 
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Dense>
+#include <fstream>
+#include <unordered_map>
 #include <vector>
 
 #include "optimizer/camera_projection_factor.hpp"
@@ -26,28 +28,41 @@
 #include "optimizer/vertex_params.hpp"
 #include "tools/geometry.hpp"
 #include "tools/message_print.hpp"
+#include "tools/tic_toc.hpp"
 
 namespace vslam {
 class FactorGraphOptimizer {
 public:
-  using MapVertexNavState = std::map<int, VertexParamNavState>;
-  using MapVertexCameraEx = std::map<int, VertexParamCameraEx>;
-  using MapVertexFeature = std::map<int, VertexParamFeature>;
+  // using MapVertexNavState = std::unordered_map<int, VertexParamNavState>;
+  // using MapVertexCameraEx = std::unordered_map<int, VertexParamCameraEx>;
+  // using MapVertexFeature = std::unordered_map<int, VertexParamFeature>;
 
   FactorGraphOptimizer() = delete;
   FactorGraphOptimizer(const int num_iter, const double max_time,
-                       const bool debug);
+                       const bool debug, const double sigma,
+                       const int window_size);
   ~FactorGraphOptimizer();
 
+  void initGraph();
+  void clearGraph();
   bool optimize();
 
-  void addVertexNavState(const int idx, const NavState &nav_state,
-                         const IMUBias &bias, bool fix = false);
-  void addVertexCameraEx(const int idx, const Eigen::Isometry3d &Tic,
-                         bool fix = false);
-  void addVertexFeature(const int idx, const double val);
+  void initMarginalization();
+  void clearMarginalization();
+  bool marginalize();
 
-  //	bool addFactorMargin();
+  void setVertices(const std::vector<NavState> &nav_states,
+                   const std::vector<IMUBias> &imu_bias,
+                   const Eigen::Isometry3d &Tic0, const Eigen::Isometry3d &Tic1,
+                   const Eigen::VectorXd &depth_vec);
+
+  void addParamNavState(const int idx, bool fix = false);
+  void addParamCameraEx(const int idx, bool fix = false);
+  // void addParamFeature(const int idx, const double val);
+
+  bool addFactorMargin(const std::shared_ptr<MarginalizationInfo> &margin_info,
+                       const std::vector<double *> &margin_param_blocks);
+
   bool addFactorIMU(const int idx_pre, const int idx,
                     const std::shared_ptr<IMUPreintegration> &imu_preint);
 
@@ -77,18 +92,60 @@ public:
   bool getCameraEx(const int idx, Eigen::Isometry3d &Tic) const;
   bool getFeature(const int idx, double &val) const;
 
-private:
+  bool
+  addMGFactorMargin(const std::shared_ptr<MarginalizationInfo> &margin_info,
+                    const std::vector<double *> &margin_param_blocks,
+                    const std::vector<int> &drop_set);
+	bool addMGFactorIMU( const int idx_pre, const int idx,
+			const std::shared_ptr<IMUPreintegration> &imu_preint);
+bool addMGFactorProject12(
+    const int f_idx, const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
+    const double td_i, const double td_j);
+bool addMGFactorProject21(
+    const int idx_i, const int idx_j, const int f_idx,
+    const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
+    const double td_i, const double td_j);
+bool addMGFactorProject22(
+    const int idx_i, const int idx_j, const int f_idx,
+    const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
+    const double td_i, const double td_j) ;
+
+  double *getParamNavState(const int i) {
+    // DEBUG("vertices_nav_state_[i].pose.data() =
+    // ",vertices_nav_state_[i].pose.data());
+    return vertices_nav_state_[i].pose.data();
+  }
+  double *getParamVelBias(const int i) {
+    return vertices_nav_state_[i].vel_bias.data();
+  }
+  double *getParamCameraEx(const int i) {
+    return vertices_camera_ex_[i].pose.data();
+  }
+  double *getParamFeature(const int i) {
+    return vertices_feature_[i].depth.data();
+  }
+  double *getParamTd() { return vertices_td_.data(); }
+
 private:
   int max_num_iterations_ = 10;
   double max_solver_time_ = 0.05;
   bool minimizer_progress_to_stdout_ = false;
+  double sqrt_info_sigma_ = 306.7;
 
   ceres::Problem *problem_;
   ceres::LossFunction *loss_function_;
 
-  MapVertexNavState vertices_nav_state_;
-  MapVertexCameraEx vertices_camera_ex_;
-  MapVertexFeature vertices_feature_;
+  std::shared_ptr<MarginalizationInfo> marginalization_;
+
+  // MapVertexNavState vertices_nav_state_;
+  // MapVertexCameraEx vertices_camera_ex_;
+  // MapVertexFeature vertices_feature_;
+  std::vector<VertexParamNavState> vertices_nav_state_;
+  std::vector<VertexParamCameraEx> vertices_camera_ex_;
+  std::vector<VertexParamFeature> vertices_feature_;
   Eigen::Matrix<double, 1, 1> vertices_td_;
 };
 } // namespace vslam

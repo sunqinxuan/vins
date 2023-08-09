@@ -33,11 +33,15 @@ DataFlow::DataFlow(ros::NodeHandle &nh, std::string work_space_path) {
   config["cam0_topic"] >> cam0_topic;
   config["cam1_topic"] >> cam1_topic;
   config["imu0_topic"] >> imu_topic;
+  config["output_path"] >> vins_result_path_;
   config.release();
 
   std::cout << "cam0_topic: " << cam0_topic << std::endl;
   std::cout << "cam1_topic: " << cam1_topic << std::endl;
   std::cout << "imu_topic: " << imu_topic << std::endl;
+  std::cout << "result path: " << vins_result_path_ << std::endl;
+  std::ofstream fout(vins_result_path_, std::ios::out);
+  fout.close();
 
   // YAML::Node config_node = YAML::LoadFile(config_file_path);
   // std::string cam0_topic =
@@ -51,6 +55,10 @@ DataFlow::DataFlow(ros::NodeHandle &nh, std::string work_space_path) {
   sub_cam1_ = nh.subscribe(cam1_topic, 100, &DataFlow::cam1_callback, this);
   sub_imu_ = nh.subscribe(imu_topic, 2000, &DataFlow::imu_callback, this,
                           ros::TransportHints().tcpNoDelay());
+  pub_track_image_ =
+      nh.advertise<sensor_msgs::Image>("image_track", 1000);
+  pub_odometry_ = nh.advertise<nav_msgs::Odometry>("odometry", 1000);
+  pub_path_ = nh.advertise<nav_msgs::Path>("path", 1000);
 }
 
 void DataFlow::cam0_callback(const sensor_msgs::ImageConstPtr &img_msg) {
@@ -317,6 +325,12 @@ bool DataFlow::getIMUInterval(
   return true;
 }
 
+std::deque<IMUMeasureTime> DataFlow::getIMUBuf() {
+  std::unique_lock<std::mutex> lock(buff_mutex_);
+  std::deque<IMUMeasureTime> buf = imu_buf_;
+  return buf;
+}
+
 // void DataFlow::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration,
 //                              Eigen::Vector3d angular_velocity) {
 //  double dt = t - latest_time;
@@ -343,4 +357,65 @@ bool DataFlow::getIMUInterval(
 //  return dq;
 //}
 
+void DataFlow::pubTrackImage(const double t, const cv::Mat &imgTrack) {
+  std_msgs::Header header;
+  header.frame_id = "world";
+  header.stamp = ros::Time(t);
+  sensor_msgs::ImagePtr imgTrackMsg =
+      cv_bridge::CvImage(header, "bgr8", imgTrack).toImageMsg();
+  pub_track_image_.publish(imgTrackMsg);
+}
+
+void DataFlow::pubOdometry(const double t, const NavState &nav_state,
+                           const bool is_initialized) {
+  if (!is_initialized)
+    return;
+
+  std_msgs::Header header;
+  header.frame_id = "world";
+  header.stamp = ros::Time(t);
+
+  nav_msgs::Odometry odometry;
+  odometry.header = header;
+  odometry.header.frame_id = "world";
+  odometry.child_frame_id = "world";
+
+  Eigen::Quaterniond tmp_Q;
+  tmp_Q = Eigen::Quaterniond(nav_state.rotation());
+
+  odometry.pose.pose.position.x = nav_state.position().x();
+  odometry.pose.pose.position.y = nav_state.position().y();
+  odometry.pose.pose.position.z = nav_state.position().z();
+  odometry.pose.pose.orientation.x = tmp_Q.x();
+  odometry.pose.pose.orientation.y = tmp_Q.y();
+  odometry.pose.pose.orientation.z = tmp_Q.z();
+  odometry.pose.pose.orientation.w = tmp_Q.w();
+  odometry.twist.twist.linear.x = nav_state.velocity().x();
+  odometry.twist.twist.linear.y = nav_state.velocity().y();
+  odometry.twist.twist.linear.z = nav_state.velocity().z();
+  pub_odometry_.publish(odometry);
+
+  geometry_msgs::PoseStamped pose_stamped;
+  pose_stamped.header = header;
+  pose_stamped.header.frame_id = "world";
+  pose_stamped.pose = odometry.pose.pose;
+  nav_msgs::Path path;
+  path.header = header;
+  path.header.frame_id = "world";
+  path.poses.push_back(pose_stamped);
+  pub_path_.publish(path);
+
+  // write result to file
+  std::ofstream foutC(vins_result_path_, std::ios::app);
+  foutC.setf(std::ios::fixed, std::ios::floatfield);
+  foutC.precision(0);
+  foutC << header.stamp.toSec() * 1e9 << ",";
+  foutC.precision(5);
+  foutC << nav_state.position().x() << "," << nav_state.position().y() << ","
+        << nav_state.position().z() << "," << tmp_Q.w() << "," << tmp_Q.x()
+        << "," << tmp_Q.y() << "," << tmp_Q.z() << ","
+        << nav_state.velocity().x() << "," << nav_state.velocity().y() << ","
+        << nav_state.velocity().z() << "," << std::endl;
+  foutC.close();
+}
 } // namespace vslam

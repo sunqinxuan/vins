@@ -61,8 +61,7 @@ public:
                      &imu_interval);
   std::deque<IMUMeasureTime> getIMUBuf();
 
-  void pubTrackImage(const double t, const cv::Mat &imgTrack);
-  void pubOdometry(const double t, const NavState &nav_state,
+  void pubOdometry(const double time, const NavState &nav_state,
                    const bool is_initialized);
 
 private:

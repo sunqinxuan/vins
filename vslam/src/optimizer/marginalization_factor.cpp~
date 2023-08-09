@@ -92,6 +92,9 @@ MarginalizationInfo::~MarginalizationInfo() {
 
     delete factors[i]->cost_function;
 
+    if (factors[i]->loss_function != nullptr)
+      delete factors[i]->loss_function;
+
     delete factors[i];
   }
 }
@@ -262,7 +265,7 @@ void MarginalizationInfo::marginalize() {
     int ret = pthread_create(&tids[i], NULL, ThreadsConstructA,
                              (void *)&(threadsstruct[i]));
     if (ret != 0) {
-      ROS_WARN("pthread_create error");
+      WARNING("pthread_create error");
       ROS_BREAK();
     }
   }

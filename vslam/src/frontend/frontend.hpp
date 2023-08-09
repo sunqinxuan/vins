@@ -24,7 +24,9 @@
 #include <mutex>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
+#include <set>
 #include <string>
+#include <unordered_map>
 //#include <gtsam/navigation/ImuBias.h>
 //#include <gtsam/navigation/CombinedImuFactor.h>
 
@@ -51,12 +53,21 @@ public:
 private:
   void startTracking();
   void trackImage(double t, const cv::Mat &img0, const cv::Mat &img1);
-  void pubTrackImage(const cv::Mat &imgTrack, const double t);
   void initIMUPose(std::vector<IMUMeasureTime> &imu_interv);
   void processFrame(const double &time, const PointsTrack &feature_frame);
   void preintIMU(const std::vector<IMUMeasureTime> &imu_intv);
   void optimize();
   void updateOptimizedStates();
+  void updateLatestStates();
+  void predictIMU(double t, Eigen::Vector3d linear_acceleration,
+                  Eigen::Vector3d angular_velocity);
+  void slideWindow();
+  void detectOutliers(std::set<int> &rm_idx);
+  double reprojectionError(const NavState &nsi, const NavState &nsj,
+                           const Eigen::Isometry3d &Tici,
+                           const Eigen::Isometry3d &Ticj, double depth,
+                           const Eigen::Vector3d &uvi,
+                           const Eigen::Vector3d &uvj);
 
   bool flag_ = false;
 
@@ -68,6 +79,7 @@ private:
   bool init_first_pose_flag_ = false;
   bool is_initialized_flag_ = false;
   bool received_imu_ = false;
+  double focal_length_ = 460.0;
 
   Eigen::Vector3d gravity;
 
@@ -80,6 +92,11 @@ private:
   std::vector<NavState> nav_states_;
   std::vector<IMUBias> imu_bias_;
 
+  double latest_time_;
+  NavState latest_nav_state_;
+  IMUBias latest_imu_bias_;
+  IMUMeasure latest_imu_meas_;
+
   Eigen::Isometry3d Tic0_calib_, Tic1_calib_;
   std::queue<std::pair<double, PointsTrack>> feature_buf_;
 
@@ -90,7 +107,7 @@ private:
 
   std::thread thread_track_;
   std::mutex buff_mutex_;
-  // std::mutex proc_mutex_;
+  std::mutex prop_mutex_;
   ros::Publisher pub_track_image_;
 
   std::shared_ptr<DataFlow> dataflow_ptr_;
@@ -98,6 +115,9 @@ private:
   std::shared_ptr<FeatureManager> feature_manager_ptr_;
   std::shared_ptr<InitialAlignment> initial_alignment_ptr_;
   std::shared_ptr<FactorGraphOptimizer> graph_optimizer_ptr_;
+
+  std::shared_ptr<MarginalizationInfo> marginalization_info_;
+  std::vector<double *> marginalization_param_blocks_;
 };
 } // namespace vslam
 

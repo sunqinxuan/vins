@@ -29,10 +29,12 @@ using Vector1d = Eigen::Matrix<double, 1, 1>;
 
 class VertexParamNavState {
 public:
-  VertexParamNavState() {}
-  VertexParamNavState(const NavState &nav_state, const IMUBias &bias,
-                      bool fix = false)
-      : fixed(fix) {
+  VertexParamNavState() {
+    pose.setZero();
+    pose(6) = 1.0;
+    vel_bias.setZero();
+  }
+  void setValues(const NavState &nav_state, const IMUBias &bias) {
     pose(0) = nav_state.position().x();
     pose(1) = nav_state.position().y();
     pose(2) = nav_state.position().z();
@@ -49,16 +51,18 @@ public:
 
   Vector7d pose;
   Vector9d vel_bias;
-  bool fixed;
+  // bool fixed;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 class VertexParamCameraEx {
 public:
-  VertexParamCameraEx(){};
-  VertexParamCameraEx(const Eigen::Isometry3d &Tic, bool fix = false)
-      : fixed(fix) {
+  VertexParamCameraEx() {
+    pose.setZero();
+    pose(6) = 1.0;
+  }
+  void setValues(const Eigen::Isometry3d &Tic) {
     pose(0) = Tic.translation().x();
     pose(1) = Tic.translation().y();
     pose(2) = Tic.translation().z();
@@ -70,29 +74,27 @@ public:
   }
 
   Vector7d pose;
-  bool fixed;
+  // bool fixed;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 class VertexParamFeature {
 public:
-  VertexParamFeature(){};
-  VertexParamFeature(const double d, bool fix = false) : fixed(fix) {
-    depth(0) = d;
-  }
+  VertexParamFeature() : depth(0.0) {}
+  void setValues(const double d) { depth(0) = d; }
 
   Vector1d depth;
-  bool fixed;
+  // bool fixed;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-class VertexParamMargin {
-public:
-  VertexParamMargin() = delete;
-  // VertexParamMargin() {}
-};
+// class VertexParamMargin {
+// public:
+//  VertexParamMargin() = delete;
+//  // VertexParamMargin() {}
+//};
 
 class PoseLocalParameterization : public ceres::LocalParameterization {
   virtual bool Plus(const double *x, const double *delta,

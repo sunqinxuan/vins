@@ -83,7 +83,8 @@ public:
 class FeatureManager {
 public:
   FeatureManager();
-  FeatureManager(const double focal_length, const double min_parallax);
+  FeatureManager(const double focal_length, const double min_parallax,
+                 const int window_size);
 
   void clearState();
   int getFeatureCount();
@@ -107,15 +108,16 @@ public:
                         Eigen::Vector2d &point0, Eigen::Vector2d &point1,
                         Eigen::Vector3d &point_3d);
   void setDepth(const Eigen::VectorXd &x);
+  void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P,
+                            Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
+  void removeBack();
+  void removeFront(int frame_count);
+  void removeOutlier(std::set<int> &outlierIndex);
+  void removeFailures();
   // vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int
   // frame_count_r);
   ////void updateDepth(const VectorXd &x);
-  // void removeFailures();
   // void clearDepth();
-
-  // void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P,
-  // Eigen::Matrix3d new_R, Eigen::Vector3d new_P); void removeBack(); void
-  // removeFront(int frame_count); void removeOutlier(set<int> &outlierIndex);
 
   std::list<FeaturePerId> feature;
 
@@ -130,6 +132,7 @@ private:
   int new_feature_num;
   int long_track_num;
   double focal_length_, min_parallax_;
+  int window_size_;
 };
 } // namespace vslam
 #endif

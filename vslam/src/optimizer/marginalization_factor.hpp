@@ -58,7 +58,10 @@ struct ThreadsStruct {
 
 class MarginalizationInfo {
 public:
-  MarginalizationInfo() { valid = true; };
+  MarginalizationInfo() {
+    valid = true;
+    // init = false;
+  };
   ~MarginalizationInfo();
   int localSize(int size) const;
   int globalSize(int size) const;
@@ -83,6 +86,8 @@ public:
   Eigen::VectorXd linearized_residuals;
   const double eps = 1e-8;
   bool valid;
+
+  // bool init;
 };
 
 class MarginalizationFactor : public ceres::CostFunction {

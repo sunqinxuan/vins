@@ -39,6 +39,8 @@ public:
 
   void update(const Eigen::Vector3d &theta);
 
+  void swap(Rot3 &other) { rot_.swap(other.rot_); }
+
 private:
   Eigen::Matrix3d rot_;
 };
@@ -59,6 +61,10 @@ public:
   Eigen::Vector3d velocity() const { return v_; }
 
   void setRotation(const Eigen::Matrix3d &R) { R_.setRotation(R); }
+  void setQuaternion(const Eigen::Quaterniond &q) {
+    Eigen::Quaterniond qq = q.normalized();
+    R_.setRotation(qq.toRotationMatrix());
+  }
   void setPosition(const Eigen::Vector3d &p) { p_ = p; }
   void setVelocity(const Eigen::Vector3d &v) { v_ = v; }
 
@@ -71,6 +77,12 @@ public:
     os << "p: " << state.p_.transpose() << std::endl;
     os << "v: " << state.v_.transpose() << std::endl;
     return os;
+  }
+
+  void swap(NavState &other) {
+    R_.swap(other.R_);
+    p_.swap(other.p_);
+    v_.swap(other.v_);
   }
 
 private:

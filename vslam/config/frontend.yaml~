@@ -2,6 +2,7 @@
 
 cam0_calib: "/euroc/cam0_mei.yaml"
 cam1_calib: "/euroc/cam1_mei.yaml"
+output_path: "~/output/"
 
 #feature traker paprameters
 max_cnt: 150            # max feature number in feature tracking
@@ -37,3 +38,7 @@ gravity: 9.81007     # gravity magnitude
 
 focal_length: 460.0
 keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
+
+max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
+max_num_iterations: 8   # max solver itrations, to guarantee real time
+minimizer_progress_to_stdout: 1

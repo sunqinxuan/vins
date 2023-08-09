@@ -92,6 +92,9 @@ MarginalizationInfo::~MarginalizationInfo() {
 
     delete factors[i]->cost_function;
 
+    if (factors[i]->loss_function)
+      delete factors[i]->loss_function;
+
     delete factors[i];
   }
 }
