@@ -17,7 +17,9 @@
 using namespace vslam;
 int main(int argc, char *argv[]) {
   ros::init(argc, argv, "slam_node");
-  ros::NodeHandle nh;
+  ros::NodeHandle nh; //("~");
+                      // ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                      // ros::console::levels::Info);
 
   // std::string pc_ins_topic;
   bool map_init_from_file;

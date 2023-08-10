@@ -108,7 +108,6 @@ private:
   std::thread thread_track_;
   std::mutex buff_mutex_;
   std::mutex prop_mutex_;
-  ros::Publisher pub_track_image_;
 
   std::shared_ptr<DataFlow> dataflow_ptr_;
   std::shared_ptr<FeatureTracker> feature_tracker_ptr_;

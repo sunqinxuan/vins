@@ -5,7 +5,7 @@ cam1_topic: /cam1/image_raw
 imu0_topic: /imu0
 ground_truth_topic: /leica/position
 
-output_path: "~/output/"
+output_path: "~/output/vio.csv"
 #vision_delay_time: 0.0
 #avm_dilation_ratio: 3 # pixel
 

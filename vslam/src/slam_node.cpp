@@ -17,14 +17,16 @@
 using namespace vslam;
 int main(int argc, char *argv[]) {
   ros::init(argc, argv, "slam_node");
-  ros::NodeHandle nh("~");
+  ros::NodeHandle nh; //("~");
+                      // ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                      // ros::console::levels::Info);
 
   // std::string pc_ins_topic;
-  bool map_init_from_file;
+  //bool map_init_from_file;
   std::string work_space_path;
   // nh.param<std::string>("pc_ins_topic", pc_ins_topic, "/synced_pc_ins"); //
   // test
-  nh.param<bool>("map_init_from_file", map_init_from_file, true);
+  //nh.param<bool>("map_init_from_file", map_init_from_file, true);
   nh.param<std::string>("work_space_path", work_space_path, "");
 
   // std::cout << "map_init_from_file: " << map_init_from_file << std::endl;

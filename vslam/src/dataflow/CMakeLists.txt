@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(dataflow)
 
-#find_package(yaml-cpp REQUIRED)
 find_package(OpenCV REQUIRED)
 message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 find_package(Eigen3)

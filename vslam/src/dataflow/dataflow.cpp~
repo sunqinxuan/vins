@@ -15,17 +15,8 @@
 #include "dataflow/dataflow.hpp"
 
 namespace vslam {
+
 DataFlow::DataFlow(ros::NodeHandle &nh, std::string work_space_path) {
-  // std::string data_path = work_space_path + "/data/map";
-  // if (load_map_from_file_) {
-  //  YAML::Node map_config_node = YAML::LoadFile(data_path + "/map.yaml");
-  //} else {
-  //  if (!FileManager::CreateDirectory(data_path))
-  //    std::cerr << "cannot create directory: " << data_path << std::endl;
-  //  if (!FileManager::CreateFile(map_init_ofs_, data_path + "/map.yaml"))
-  //    std::cerr << "cannot create file: " << data_path + "/map.yaml"
-  //              << std::endl;
-  //}
 
   std::string config_file_path = work_space_path + "/config/dataflow.yaml";
   cv::FileStorage config(config_file_path, cv::FileStorage::READ);
@@ -43,22 +34,29 @@ DataFlow::DataFlow(ros::NodeHandle &nh, std::string work_space_path) {
   std::ofstream fout(vins_result_path_, std::ios::out);
   fout.close();
 
-  // YAML::Node config_node = YAML::LoadFile(config_file_path);
-  // std::string cam0_topic =
-  //    config_node["topics"]["cam0_topic"].as<std::string>();
-  // std::string cam1_topic =
-  //    config_node["topics"]["cam1_topic"].as<std::string>();
-  // std::string imu_topic =
-  // config_node["topics"]["imu0_topic"].as<std::string>();
-
   sub_cam0_ = nh.subscribe(cam0_topic, 100, &DataFlow::cam0_callback, this);
   sub_cam1_ = nh.subscribe(cam1_topic, 100, &DataFlow::cam1_callback, this);
   sub_imu_ = nh.subscribe(imu_topic, 2000, &DataFlow::imu_callback, this,
                           ros::TransportHints().tcpNoDelay());
+
   pub_track_image_ =
-      nh.advertise<sensor_msgs::Image>("image_track", 1000);
-  pub_odometry_ = nh.advertise<nav_msgs::Odometry>("odometry", 1000);
-  pub_path_ = nh.advertise<nav_msgs::Path>("path", 1000);
+      nh.advertise<sensor_msgs::Image>("/frontend/track_image", 1000);
+  pub_odometry_ = nh.advertise<nav_msgs::Odometry>("/frontend/odometry", 1000);
+  pub_path_ = nh.advertise<nav_msgs::Path>("/frontend/path", 1000);
+  pub_key_poses_ =
+      nh.advertise<visualization_msgs::Marker>("/frontend/key_poses", 1000);
+  pub_camera_pose_ =
+      nh.advertise<nav_msgs::Odometry>("/frontend/camera_pose", 1000);
+  pub_camera_pose_visual_ = nh.advertise<visualization_msgs::MarkerArray>(
+      "/frontend/camera_pose_visual", 1000);
+  pub_point_cloud_ =
+      nh.advertise<sensor_msgs::PointCloud>("/frontend/point_cloud", 1000);
+  pub_margin_cloud_ =
+      nh.advertise<sensor_msgs::PointCloud>("/frontend/margin_cloud", 1000);
+
+  cameraposevisual = CameraPoseVisualization(1, 0, 0, 1);
+  cameraposevisual.setScale(0.1);
+  cameraposevisual.setLineWidth(0.01);
 }
 
 void DataFlow::cam0_callback(const sensor_msgs::ImageConstPtr &img_msg) {
@@ -399,11 +397,10 @@ void DataFlow::pubOdometry(const double t, const NavState &nav_state,
   pose_stamped.header = header;
   pose_stamped.header.frame_id = "world";
   pose_stamped.pose = odometry.pose.pose;
-  nav_msgs::Path path;
-  path.header = header;
-  path.header.frame_id = "world";
-  path.poses.push_back(pose_stamped);
-  pub_path_.publish(path);
+  vio_path_.header = header;
+  vio_path_.header.frame_id = "world";
+  vio_path_.poses.push_back(pose_stamped);
+  pub_path_.publish(vio_path_);
 
   // write result to file
   std::ofstream foutC(vins_result_path_, std::ios::app);
@@ -417,5 +414,170 @@ void DataFlow::pubOdometry(const double t, const NavState &nav_state,
         << nav_state.velocity().x() << "," << nav_state.velocity().y() << ","
         << nav_state.velocity().z() << "," << std::endl;
   foutC.close();
+}
+
+void DataFlow::pubKeyPoses(const double t,
+                           const std::vector<NavState> &nav_states) {
+  if (nav_states.size() == 0)
+    return;
+
+  std_msgs::Header header;
+  header.frame_id = "world";
+  header.stamp = ros::Time(t);
+
+  visualization_msgs::Marker key_poses;
+  key_poses.header = header;
+  key_poses.header.frame_id = "world";
+  key_poses.ns = "key_poses";
+  key_poses.type = visualization_msgs::Marker::SPHERE_LIST;
+  key_poses.action = visualization_msgs::Marker::ADD;
+  key_poses.pose.orientation.w = 1.0;
+  key_poses.lifetime = ros::Duration();
+
+  // static int key_poses_id = 0;
+  key_poses.id = 0; // key_poses_id++;
+  key_poses.scale.x = 0.05;
+  key_poses.scale.y = 0.05;
+  key_poses.scale.z = 0.05;
+  key_poses.color.r = 1.0;
+  key_poses.color.a = 1.0;
+
+  for (size_t i = 0; i < nav_states.size(); i++) {
+    geometry_msgs::Point pose_marker;
+    Eigen::Vector3d correct_pose;
+    correct_pose = nav_states[i].position();
+    pose_marker.x = correct_pose.x();
+    pose_marker.y = correct_pose.y();
+    pose_marker.z = correct_pose.z();
+    key_poses.points.push_back(pose_marker);
+  }
+  pub_key_poses_.publish(key_poses);
+}
+
+void DataFlow::pubCameraPose(const double t, const NavState &nav_state,
+                             const Eigen::Isometry3d &Tic0,
+                             const Eigen::Isometry3d &Tic1,
+                             const bool is_initialized) {
+  if (!is_initialized)
+    return;
+
+  std_msgs::Header header;
+  header.frame_id = "world";
+  header.stamp = ros::Time(t);
+
+  // Vector3d P = estimator.Ps[i] + estimator.Rs[i] * estimator.tic[0];
+  // Quaterniond R = Quaterniond(estimator.Rs[i] * estimator.ric[0]);
+  Eigen::Vector3d P =
+      nav_state.position() + nav_state.rotation() * Tic0.translation();
+  Eigen::Quaterniond R =
+      Eigen::Quaterniond(nav_state.rotation() * Tic0.linear());
+
+  nav_msgs::Odometry odometry;
+  odometry.header = header;
+  odometry.header.frame_id = "world";
+  odometry.pose.pose.position.x = P.x();
+  odometry.pose.pose.position.y = P.y();
+  odometry.pose.pose.position.z = P.z();
+  odometry.pose.pose.orientation.x = R.x();
+  odometry.pose.pose.orientation.y = R.y();
+  odometry.pose.pose.orientation.z = R.z();
+  odometry.pose.pose.orientation.w = R.w();
+
+  pub_camera_pose_.publish(odometry);
+
+  cameraposevisual.reset();
+  cameraposevisual.add_pose(P, R);
+
+  // cam_right
+  // Eigen::Vector3d Pr = estimator.Ps[i] + estimator.Rs[i] * estimator.tic[1];
+  // Eigen::Quaterniond Rr = Quaterniond(estimator.Rs[i] * estimator.ric[1]);
+  Eigen::Vector3d Pr =
+      nav_state.position() + nav_state.rotation() * Tic1.translation();
+  Eigen::Quaterniond Rr =
+      Eigen::Quaterniond(nav_state.rotation() * Tic1.linear());
+  cameraposevisual.add_pose(Pr, Rr);
+
+  cameraposevisual.publish_by(pub_camera_pose_visual_, odometry.header);
+}
+
+void DataFlow::pubPointCloud(const double t,
+                             const std::vector<NavState> &nav_states,
+                             const Eigen::Isometry3d &Tic0,
+                             const Eigen::Isometry3d &Tic1,
+                             const std::list<FeaturePerId> &feature) {
+  std_msgs::Header header;
+  header.frame_id = "world";
+  header.stamp = ros::Time(t);
+
+  sensor_msgs::PointCloud point_cloud, loop_point_cloud;
+  point_cloud.header = header;
+  loop_point_cloud.header = header;
+
+  for (auto &it_per_id : feature) {
+    int used_num;
+    used_num = it_per_id.feature_per_frame.size();
+    if (!(used_num >= 2 && it_per_id.start_frame < (nav_states.size() - 1) - 2))
+      continue;
+    if (it_per_id.start_frame > (nav_states.size() - 1) * 3.0 / 4.0 ||
+        it_per_id.solve_flag != 1)
+      continue;
+    int imu_i = it_per_id.start_frame;
+    Eigen::Vector3d pts_i =
+        it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+    Eigen::Vector3d w_pts_i = nav_states[imu_i].rotation() *
+                                  (Tic0.linear() * pts_i + Tic0.translation()) +
+                              nav_states[imu_i].position();
+    // Eigen::Vector3d w_pts_i = estimator.Rs[imu_i] * (estimator.ric[0] * pts_i
+    // + estimator.tic[0]) + estimator.Ps[imu_i];
+
+    geometry_msgs::Point32 p;
+    p.x = w_pts_i(0);
+    p.y = w_pts_i(1);
+    p.z = w_pts_i(2);
+    point_cloud.points.push_back(p);
+  }
+  pub_point_cloud_.publish(point_cloud);
+
+  // pub margined potin
+  sensor_msgs::PointCloud margin_cloud;
+  margin_cloud.header = header;
+
+  DEBUG("publish margin cloud ==========================");
+  DEBUG("===============================================");
+  using namespace std;
+  cout << "time = " << fixed << t << endl;
+
+  for (auto &it_per_id : feature) {
+    int used_num;
+    used_num = it_per_id.feature_per_frame.size();
+    if (!(used_num >= 2 && it_per_id.start_frame < (nav_states.size() - 1) - 2))
+      continue;
+    // if (it_per_id->start_frame > WINDOW_SIZE * 3.0 / 4.0 ||
+    // it_per_id->solve_flag != 1)
+    //        continue;
+
+    if (it_per_id.start_frame == 0 && it_per_id.feature_per_frame.size() <= 2 &&
+        it_per_id.solve_flag == 1) {
+      int imu_i = it_per_id.start_frame;
+      Eigen::Vector3d pts_i =
+          it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+      Eigen::Vector3d w_pts_i =
+          nav_states[imu_i].rotation() *
+              (Tic0.linear() * pts_i + Tic0.translation()) +
+          nav_states[imu_i].position();
+      // Eigen::Vector3d w_pts_i = estimator.Rs[imu_i] * (estimator.ric[0] *
+      // pts_i + estimator.tic[0]) + estimator.Ps[imu_i];
+      cout << "imu_i = " << imu_i << " -----------------------" << endl;
+      cout << "pts_i = " << pts_i.transpose() << endl;
+      cout << "w_pts_i = " << w_pts_i.transpose() << endl;
+
+      geometry_msgs::Point32 p;
+      p.x = w_pts_i(0);
+      p.y = w_pts_i(1);
+      p.z = w_pts_i(2);
+      margin_cloud.points.push_back(p);
+    }
+  }
+  pub_margin_cloud_.publish(margin_cloud);
 }
 } // namespace vslam

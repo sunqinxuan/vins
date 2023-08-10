@@ -22,7 +22,9 @@
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/image_encodings.h>
+#include <visualization_msgs/Marker.h>
 
 #include <deque>
 #include <eigen3/Eigen/Dense>
@@ -37,6 +39,8 @@
 #include <vector>
 //#include <yaml-cpp/yaml.h>
 
+#include "dataflow/camera_visualization.hpp"
+#include "frontend/feature_manager.hpp"
 #include "tools/geometry.hpp"
 #include "tools/type_redefine.hpp"
 
@@ -64,6 +68,14 @@ public:
   void pubTrackImage(const double t, const cv::Mat &imgTrack);
   void pubOdometry(const double t, const NavState &nav_state,
                    const bool is_initialized);
+  void pubKeyPoses(const double t, const std::vector<NavState> &nav_states);
+  void pubCameraPose(const double t, const NavState &nav_state,
+                     const Eigen::Isometry3d &Tic0,
+                     const Eigen::Isometry3d &Tic1, const bool is_initialized);
+  void pubPointCloud(const double t, const std::vector<NavState> &nav_states,
+                     const Eigen::Isometry3d &Tic0,
+                     const Eigen::Isometry3d &Tic1,
+                     const std::list<FeaturePerId> &feature);
 
 private:
   void process();
@@ -107,10 +119,16 @@ private:
   // bool load_map_from_file_ = false;
 
   std::string vins_result_path_;
+  nav_msgs::Path vio_path_;
+  CameraPoseVisualization cameraposevisual;
 
-	ros::Publisher pub_image_track_;
+  ros::Publisher pub_track_image_;
   ros::Publisher pub_odometry_;
   ros::Publisher pub_path_;
+  ros::Publisher pub_key_poses_;
+  ros::Publisher pub_camera_pose_;
+  ros::Publisher pub_camera_pose_visual_;
+  ros::Publisher pub_point_cloud_, pub_margin_cloud_;
 };
 } // namespace vslam
 

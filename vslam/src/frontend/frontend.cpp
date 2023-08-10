@@ -16,27 +16,13 @@
 
 namespace vslam {
 FrontEnd::FrontEnd(ros::NodeHandle &nh, std::string work_space_path) {
+
   std::string config_file_path = work_space_path + "/config/frontend.yaml";
-  // YAML::Node config_node = YAML::LoadFile(config_file_path);
-
   cv::FileStorage config(config_file_path, cv::FileStorage::READ);
-
-  //	std::string cam0_file;
-  //	config["cam0_calib"]>>cam0_file;
-  //	DEBUG("cam0_file",cam0_file);
-  //	int max_cnt=config["max_cnt"];
-  //	DEBUG("max_cnt: ",max_cnt);
-  //
-
-  // RIC.push_back(T.block<3, 3>(0, 0));
-  // TIC.push_back(T.block<3, 1>(0, 3));
-  //
 
   std::string cam0_file, cam1_file;
   config["cam0_calib"] >> cam0_file;
   config["cam1_calib"] >> cam1_file;
-  // std::string cam0_file = config_node["cam0_calib"].as<std::string>();
-  // std::string cam1_file = config_node["cam1_calib"].as<std::string>();
   std::string cam0_file_path = work_space_path + "/config" + cam0_file;
   std::string cam1_file_path = work_space_path + "/config" + cam1_file;
 
@@ -70,19 +56,6 @@ FrontEnd::FrontEnd(ros::NodeHandle &nh, std::string work_space_path) {
   config["minimizer_progress_to_stdout"] >> optimizer_debug;
 
   config.release();
-
-  //	gtsam::imuBias::ConstantBias prior_imu_bias;
-  // auto params = gtsam::PreintegrationParams::MakeSharedU(gravity);
-  // params = gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedU(
-  //    gravity); // TODO
-  // params->accelerometerCovariance =
-  //    Eigen::Matrix3d::Identity(3, 3) * pow(acc_n, 2);
-  // params->gyroscopeCovariance = Eigen::Matrix3d::Identity(3, 3) * pow(gyr_n,
-  // 2); params->biasAccCovariance = Eigen::Matrix3d::Identity(3, 3) *
-  // pow(acc_w, 2); params->biasOmegaCovariance = Eigen::Matrix3d::Identity(3,
-  // 3) * pow(gyr_w, 2); params->integrationCovariance =
-  // Eigen::Matrix3d::Identity(3, 3) * 1e-8; params->biasAccOmegaInt =
-  // Eigen::Matrix<double, 6, 6>::Identity(6, 6) * 1e-5;
 
   dt_buf_.resize(window_size_ + 1);
   imu_meas_buf_.resize(window_size_ + 1);
@@ -168,7 +141,7 @@ void FrontEnd::run() {
   std::pair<double, PointsTrack> feature;
   std::vector<IMUMeasureTime> imu_interval;
   while (true) {
-    //if (flag_)
+    // if (flag_)
     //  break;
 
     if (feature_buf_.empty()) {
@@ -216,6 +189,12 @@ void FrontEnd::run() {
 
       dataflow_ptr_->pubOdometry(feature.first, nav_states_[window_size_],
                                  is_initialized_flag_);
+      dataflow_ptr_->pubKeyPoses(feature.first, nav_states_);
+      dataflow_ptr_->pubCameraPose(feature.first, nav_states_[window_size_ - 1],
+                                   Tic0_calib_, Tic1_calib_,
+                                   is_initialized_flag_);
+      dataflow_ptr_->pubPointCloud(feature.first, nav_states_, Tic0_calib_,
+                                   Tic1_calib_, feature_manager_ptr_->feature);
 
       std::chrono::milliseconds dura(2);
       std::this_thread::sleep_for(dura);
@@ -337,10 +316,8 @@ void FrontEnd::processFrame(const double &time, const PointsTrack &points) {
       nav_states_[frame_cnt_] = nav_states_[prev];
       imu_bias_[frame_cnt_] = imu_bias_[prev];
     }
-  } else // if(!is_initialized_flag_)
-  {
-    feature_manager_ptr_->initFramePoseByPnP(frame_cnt_, nav_states_,
-                                             Tic0_calib_);
+  } else { // if(!is_initialized_flag_)
+    //feature_manager_ptr_->initFramePoseByPnP(frame_cnt_, nav_states_, Tic0_calib_);
     feature_manager_ptr_->triangulate(nav_states_, Tic0_calib_, Tic1_calib_);
     optimize();
     flag_ = true;
@@ -728,16 +705,16 @@ void FrontEnd::optimize() {
     addr_shift[reinterpret_cast<long>(graph_optimizer_ptr_->getParamTd())] =
         graph_optimizer_ptr_->getParamTd();
 
-    //DEBUG("addr_shift");
-    //for (auto it : addr_shift) {
+    // DEBUG("addr_shift");
+    // for (auto it : addr_shift) {
     //  std::cout << it.first << "\t" << it.second << std::endl;
     //}
 
     std::vector<double *> parameter_blocks =
         graph_optimizer_ptr_->getMarginPtr()->getParameterBlocks(addr_shift);
 
-    //DEBUG("parameter_blocks");
-    //for (int i = 0; i < parameter_blocks.size(); i++) {
+    // DEBUG("parameter_blocks");
+    // for (int i = 0; i < parameter_blocks.size(); i++) {
     //  std::cout << i << "\t" << parameter_blocks[i] << std::endl;
     //}
 
@@ -1032,7 +1009,7 @@ void FrontEnd::trackImage(double t, const cv::Mat &img0, const cv::Mat &img1) {
 
   // show image track results;
   cv::Mat imgTrack = feature_tracker_ptr_->getTrackImage();
-  dataflow_ptr_->pubTrackImage(t,imgTrack);
+  dataflow_ptr_->pubTrackImage(t, imgTrack);
 
   if (track_img_cnt_ % 2 == 0) {
     std::unique_lock<std::mutex> lock(buff_mutex_);
