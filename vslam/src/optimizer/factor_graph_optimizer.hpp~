@@ -4,7 +4,7 @@
 #
 # Email: sunqinxuan@outlook.com
 #
-# Last modified:	2023-07-13 10:48
+# Last modified:	2023-08-11 09:52
 #
 # Filename:		factor_graph_optimizer.hpp
 #
@@ -40,7 +40,7 @@ public:
   FactorGraphOptimizer() = delete;
   FactorGraphOptimizer(const int num_iter, const double max_time,
                        const bool debug, const double sigma,
-                       const int window_size);
+                       const int window_size, bool use_imu);
   ~FactorGraphOptimizer();
 
   void initGraph();
@@ -96,22 +96,25 @@ public:
   addMGFactorMargin(const std::shared_ptr<MarginalizationInfo> &margin_info,
                     const std::vector<double *> &margin_param_blocks,
                     const std::vector<int> &drop_set);
-	bool addMGFactorIMU( const int idx_pre, const int idx,
-			const std::shared_ptr<IMUPreintegration> &imu_preint);
-bool addMGFactorProject12(
-    const int f_idx, const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
-    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
-    const double td_i, const double td_j);
-bool addMGFactorProject21(
-    const int idx_i, const int idx_j, const int f_idx,
-    const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
-    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
-    const double td_i, const double td_j);
-bool addMGFactorProject22(
-    const int idx_i, const int idx_j, const int f_idx,
-    const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
-    const Eigen::Vector2d &vel_i, const Eigen::Vector2d &vel_j,
-    const double td_i, const double td_j) ;
+  bool addMGFactorIMU(const int idx_pre, const int idx,
+                      const std::shared_ptr<IMUPreintegration> &imu_preint);
+  bool addMGFactorProject12(const int f_idx, const Eigen::Vector3d &pts_i,
+                            const Eigen::Vector3d &pts_j,
+                            const Eigen::Vector2d &vel_i,
+                            const Eigen::Vector2d &vel_j, const double td_i,
+                            const double td_j);
+  bool addMGFactorProject21(const int idx_i, const int idx_j, const int f_idx,
+                            const Eigen::Vector3d &pts_i,
+                            const Eigen::Vector3d &pts_j,
+                            const Eigen::Vector2d &vel_i,
+                            const Eigen::Vector2d &vel_j, const double td_i,
+                            const double td_j);
+  bool addMGFactorProject22(const int idx_i, const int idx_j, const int f_idx,
+                            const Eigen::Vector3d &pts_i,
+                            const Eigen::Vector3d &pts_j,
+                            const Eigen::Vector2d &vel_i,
+                            const Eigen::Vector2d &vel_j, const double td_i,
+                            const double td_j);
 
   double *getParamNavState(const int i) {
     // DEBUG("vertices_nav_state_[i].pose.data() =
@@ -129,7 +132,12 @@ bool addMGFactorProject22(
   }
   double *getParamTd() { return vertices_td_.data(); }
 
+  std::shared_ptr<MarginalizationInfo> getMarginPtr() {
+    return marginalization_;
+  }
+
 private:
+  bool use_imu_;
   int max_num_iterations_ = 10;
   double max_solver_time_ = 0.05;
   bool minimizer_progress_to_stdout_ = false;

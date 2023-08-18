@@ -11,34 +11,6 @@ add_compile_options(-std=c++14)
 add_definitions(-std=c++14)
 set(CMAKE_CXX_STANDARD 14)
 
-#option(USE_SIM "option for cmake" on) 
-#option(USE_ARM "option for arm  " off)
-#option(USE_CUDA "option for cuda" off)
-#option(USE_CODE "option for cmake" on) 
-
-#if(USE_SIM)
-#   message("USE_SIM true")
-#   add_definitions(-DUSE_SIM)
-#endif()
-#if(USE_ARM)
-#   message("USE_ARM true")
-#   add_definitions(-DARM)
-#   cmake_policy(SET CMP0046 OLD)
-#endif()
-#if(USE_CUDA)
-#   find_package(CUDA QUIET REQUIRED)
-#   set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-#   SET(CUDA_HOST_COMPILER /usr/bin/g++)
-#   add_definitions(-DCUDA_FOUND)
-#   LIST(APPEND CUDA_NVCC_FLAGS "--compiler-options -fno-strict-aliasing -use_fast_math")
-#   cuda_include_directories(${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc)
-#   cuda_add_library(cuda_filter ${CUDA_INCLUDE_HS} ${CUDA_SRCS} )
-#   include_directories(${CUDA_INCLUDE_DIRS} )
-#   #list(APPEND ALL_TARGET_LIBRARIES ${CUDA_LIBRARIES})
-#   #list(APPEND ALL_TARGET_LIBRARIES cuda_filter )
-#endif()
-
-
 find_package(OpenCV REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
@@ -95,15 +67,16 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/src/optimizer)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/dataflow)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/frontend)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/loopclosing)
 
+add_executable(frontend_node src/frontend_node.cpp)
+add_dependencies(frontend_node ${catkin_EXPORTED_TARGETS})
+target_link_libraries(frontend_node dataflow frontend ${catkin_LIBRARIES})
 
-add_executable(slam_node src/slam_node.cpp)
-add_dependencies(slam_node ${catkin_EXPORTED_TARGETS})
-target_link_libraries(slam_node dataflow frontend ${catkin_LIBRARIES})
+add_executable(loopclosing_node src/loopclosing_node.cpp)
+add_dependencies(loopclosing_node ${catkin_EXPORTED_TARGETS})
+target_link_libraries(loopclosing_node dataflow loopclosing ${catkin_LIBRARIES})
 
-
-
-
-#add_executable(kitti_node src/slam_node.cpp)
-#add_dependencies(kitti_node ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(kitti_node ${catkin_LIBRARIES})
+add_executable(kitti2msg src/kitti2msg.cpp)
+add_dependencies(kitti2msg ${catkin_EXPORTED_TARGETS})
+target_link_libraries(kitti2msg ${catkin_LIBRARIES} ${OpenCV_LIBS})

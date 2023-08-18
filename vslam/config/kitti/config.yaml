@@ -1,0 +1,52 @@
+%YAML:1.0
+
+use_imu: 0
+estimate_extrinsic: 0
+
+cam0_topic: "/leftImage"
+cam1_topic: "/rightImage"
+imu0_topic: ""
+
+output_path: "/data/vio.csv"
+
+cam0_calib: "cam00-02.yaml"
+cam1_calib: "cam00-02.yaml"
+
+#feature traker paprameters
+max_cnt: 200            # max feature number in feature tracking
+min_dist: 30            # min distance between two features 
+F_threshold: 1.0        # ransac threshold (pixel)
+
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1, 0, 0, 0,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1]
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1, 0, 0, 0.537165718864418,
+          0, 1, 0, 0,
+          0, 0, 1, 0,
+          0, 0, 0, 1]
+
+window_size: 10
+
+#imu parameters       The more accurate parameters you provide, the better performance
+acc_n: 0.1          # accelerometer measurement noise standard deviation. 
+gyr_n: 0.01         # gyroscope measurement noise standard deviation.     
+acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
+gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     
+gravity: 9.81007     # gravity magnitude
+
+focal_length: 460.0
+keyframe_parallax: 15.0 # keyframe selection threshold (pixel)
+
+max_solver_time: 0.08  # max solver itration time (ms), to guarantee real time
+max_num_iterations: 10   # max solver itrations, to guarantee real time
+minimizer_progress_to_stdout: 1

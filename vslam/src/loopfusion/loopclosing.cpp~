@@ -1,0 +1,140 @@
+/***********************************************
+#
+# Author: Sun Qinxuan
+#
+# Email: sunqinxuan@outlook.com
+#
+# Last modified:	2023-08-14 13:48
+#
+# Filename:		loopclosing.cpp
+#
+# Description:
+#
+************************************************/
+
+#include "loopcloing/loopclosing.hpp"
+
+namespace vslam {
+LoopClosing::LoopClosing(ros::NodeHandle &nh, std::string config_file_path) {
+
+  std::string config_file = config_file_path + "config.yaml";
+  cv::FileStorage config(config_file, cv::FileStorage::READ);
+
+  std::string cam0_file, cam1_file;
+  config["cam0_calib"] >> cam0_file;
+  config["cam1_calib"] >> cam1_file;
+  std::string cam0_file_path = config_file_path + cam0_file;
+  std::string cam1_file_path = config_file_path + cam1_file;
+  std::cout << "cam0_file_path: " << cam0_file_path << std::endl;
+  std::cout << "cam1_file_path: " << cam1_file_path << std::endl;
+
+  int max_cnt = config["max_cnt"];
+  int min_dist = config["min_dist"];
+  double F_thres = config["F_threshold"];
+  window_size_ = config["window_size"];
+
+  // load extrinsics for camera and imu;
+  cv::Mat cv_T;
+  config["body_T_cam0"] >> cv_T;
+  cv::cv2eigen(cv_T, Tic0_calib_.matrix());
+  config["body_T_cam1"] >> cv_T;
+  cv::cv2eigen(cv_T, Tic1_calib_.matrix());
+
+  double acc_n = config["acc_n"];
+  double gyr_n = config["gyr_n"];
+  double acc_w = config["acc_w"];
+  double gyr_w = config["gyr_w"];
+  double g = config["gravity"];
+  gravity.setZero();
+  gravity(2) = g;
+
+  double focal_length_ = config["focal_length"];
+  double min_parallax = config["keyframe_parallax"];
+  min_parallax = min_parallax / focal_length_;
+
+  int num_iter = config["max_num_iterations"];
+  double max_time = config["max_solver_time"];
+  bool optimizer_debug; // = config["minimizer_progress_to_stdout"];
+  config["minimizer_progress_to_stdout"] >> optimizer_debug;
+
+  config["estimate_extrinsic"] >> estimate_extrinsic_;
+  DEBUG("estimate_extrinsic: ", estimate_extrinsic_);
+
+  config.release();
+
+  clearState();
+
+  dataflow_ptr_ = std::make_shared<DataFlow>(nh, config_file_path);
+  dataflow_ptr_->start();
+
+  thread_track_ = std::thread(&LoopClosing::startTracking, this);
+}
+
+void LoopClosing::clearState() {
+  std::unique_lock<std::mutex> lock(buff_mutex_);
+
+}
+
+void LoopClosing::run() {
+
+  while (true) {
+    // if (flag_)
+    //  break;
+
+    if (feature_buf_.empty()) {
+      std::chrono::milliseconds dura(2);
+      std::this_thread::sleep_for(dura);
+      continue;
+    } else {
+
+			prog_mutex_.lock();
+      // process image
+      //processFrame(feature.first, feature.second);
+
+      prev_time_ = cur_time_;
+
+			prog_mutex_.unlock();
+
+      std::chrono::milliseconds dura(2);
+      std::this_thread::sleep_for(dura);
+    }
+  }
+}
+
+void LoopClosing::startTracking() {
+  cv::Mat img0, img1;
+  double t;
+  while (true) {
+    if (dataflow_ptr_->getImageData(t, img0, img1)) {
+      // INFO("getImageData", t);
+      // cv::imshow("img0", img0);
+      // cv::waitKey(1);
+
+      trackImage(t, img0, img1);
+
+    } else {
+      // usleep(2 * 1000);
+      std::chrono::milliseconds dura(2);
+      std::this_thread::sleep_for(dura);
+    }
+  }
+}
+
+void LoopClosing::trackImage(double t, const cv::Mat &img0, const cv::Mat &img1) {
+  track_img_cnt_++;
+  PointsTrack frame_features;
+  TicToc featureTrackerTime;
+  feature_tracker_ptr_->trackImage(t, img0, img1, frame_features);
+
+  // show image track results;
+  cv::Mat imgTrack = feature_tracker_ptr_->getTrackImage();
+  dataflow_ptr_->pubTrackImage(t, imgTrack);
+
+  if (track_img_cnt_ % 2 == 0) {
+    std::unique_lock<std::mutex> lock(buff_mutex_);
+    feature_buf_.push(std::make_pair(t, frame_features));
+  }
+}
+
+
+} // namespace vslam

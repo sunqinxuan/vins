@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(factor)
+project(optimizer)
 
 #find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -15,17 +15,9 @@ list(APPEND LIB_FACTOR
 
 file(GLOB_RECURSE SRC_FACTOR ./*.cpp)
 
-add_library(factor SHARED ${SRC_FACTOR})
-target_link_libraries(factor ${LIB_FACTOR})
+add_library(optimizer SHARED ${SRC_FACTOR})
+target_link_libraries(optimizer ${LIB_FACTOR})
 
-#INSTALL(TARGETS factor 
-#        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
-#        )
-#
-#INSTALL(DIRECTORY 
-#        ${CMAKE_INSTALL_PREFIX}/../include/frontend
-#        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
-#        ) 
 
 
 

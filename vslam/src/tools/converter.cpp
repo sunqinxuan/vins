@@ -97,6 +97,18 @@ Eigen::Matrix4d Converter::Qright(const Eigen::Quaterniond &p) {
   return ans;
 }
 
+double Converter::normalizeAngle(const double &angle_degrees) {
+  double two_pi(2.0 * 180);
+  if (angle_degrees > 0)
+    return angle_degrees -
+           two_pi * std::floor((angle_degrees + 180.0) / two_pi);
+  else
+    return angle_degrees +
+           two_pi * std::floor((-angle_degrees + 180.0) / two_pi);
+}
+
+/////////////////////////////////////////////////////////////////////////
+
 void Converter::NormRotationMatrix(Eigen::Matrix3f &Input) {
   Eigen::Quaternionf qr(Input);
   qr.normalize();

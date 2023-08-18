@@ -48,6 +48,20 @@ public:
     vel_bias(2) = nav_state.velocity().z();
     vel_bias.tail<6>() = bias;
   }
+  void setValues(const NavState &nav_state) {
+    pose(0) = nav_state.position().x();
+    pose(1) = nav_state.position().y();
+    pose(2) = nav_state.position().z();
+    pose(3) = nav_state.quaternion().x();
+    pose(4) = nav_state.quaternion().y();
+    pose(5) = nav_state.quaternion().z();
+    pose(6) = nav_state.quaternion().w();
+
+    // vel_bias(0) = nav_state.velocity().x();
+    // vel_bias(1) = nav_state.velocity().y();
+    // vel_bias(2) = nav_state.velocity().z();
+    // vel_bias.tail<6>() = bias;
+  }
 
   Vector7d pose;
   Vector9d vel_bias;

@@ -4,7 +4,7 @@
 #
 # Email: sunqinxuan@outlook.com
 #
-# Last modified:	2023-07-13 10:48
+# Last modified:	2023-08-11 09:52
 #
 # Filename:		factor_graph_optimizer.cpp
 #
@@ -21,9 +21,10 @@ namespace vslam {
 FactorGraphOptimizer::FactorGraphOptimizer(const int num_iter,
                                            const double max_time,
                                            const bool debug, const double sigma,
-                                           const int window_size)
+                                           const int window_size, bool use_imu)
     : max_num_iterations_(num_iter), max_solver_time_(max_time),
-      minimizer_progress_to_stdout_(debug), sqrt_info_sigma_(sigma) {
+      minimizer_progress_to_stdout_(debug), sqrt_info_sigma_(sigma),
+      use_imu_(use_imu) {
   // TODO
   ProjectionTwoFrameOneCamFactor::sqrt_info =
       sqrt_info_sigma_ * Eigen::Matrix2d::Identity();
@@ -167,6 +168,25 @@ void FactorGraphOptimizer::setVertices(const std::vector<NavState> &nav_states,
   }
 }
 
+void FactorGraphOptimizer::setVertices(const std::vector<NavState> &nav_states,
+                                       const Eigen::Isometry3d &Tic0,
+                                       const Eigen::Isometry3d &Tic1,
+                                       const Eigen::VectorXd &depth_vec) {
+  // if (nav_states.size() != imu_bias.size()) {
+  //  ERROR("invalid nav_states or imu_bias!");
+  //  return;
+  //}
+  for (size_t i = 0; i < nav_states.size(); i++) {
+    vertices_nav_state_[i].setValues(nav_states[i]);
+  }
+  vertices_camera_ex_[0].setValues(Tic0);
+  vertices_camera_ex_[1].setValues(Tic1);
+  // DEBUG("depth_vec.rows()=", depth_vec.rows());
+  for (int i = 0; i < depth_vec.rows(); i++) {
+    vertices_feature_[i].setValues(depth_vec(i));
+  }
+}
+
 void FactorGraphOptimizer::addParamNavState(const int idx, bool fix) {
   // vertices_nav_state_.insert(std::pair<int, VertexParamNavState>(
   // idx, VertexParamNavState(nav_state, bias, fix)));
@@ -176,15 +196,17 @@ void FactorGraphOptimizer::addParamNavState(const int idx, bool fix) {
   ceres::LocalParameterization *local_param = new PoseLocalParameterization();
   problem_->AddParameterBlock(vertices_nav_state_[idx].pose.data(), 7,
                               local_param);
-  problem_->AddParameterBlock(vertices_nav_state_[idx].vel_bias.data(), 9);
+  if (use_imu_)
+    problem_->AddParameterBlock(vertices_nav_state_[idx].vel_bias.data(), 9);
 
   /// DEBUG(idx, "\t", vertices_nav_state_[idx].pose.transpose());
   // INFO(idx, "\t", vertices_nav_state_[idx].vel_bias.transpose());
 
   if (fix) {
     problem_->SetParameterBlockConstant(vertices_nav_state_[idx].pose.data());
-    problem_->SetParameterBlockConstant(
-        vertices_nav_state_[idx].vel_bias.data());
+    if (use_imu_)
+      problem_->SetParameterBlockConstant(
+          vertices_nav_state_[idx].vel_bias.data());
   }
 }
 

@@ -27,6 +27,10 @@ public:
   static Eigen::Matrix3d g2R(const Eigen::Vector3d &g);
   static Eigen::Matrix3d ypr2R(const Eigen::Vector3d &ypr);
   static Eigen::Matrix3d skewSymmetric(const Eigen::Vector3d &q);
+  static Eigen::Matrix4d Qleft(const Eigen::Quaterniond &q);
+  static Eigen::Matrix4d Qright(const Eigen::Quaterniond &p);
+  static double Converter::normalizeAngle(const double& angle_degrees);
+	///////////////////////////////////////////////////////////////////////////
 
   static void NormRotationMatrix(Eigen::Matrix3f &Input);
   static void NormTransformMatrix(Eigen::Matrix4f &Input);

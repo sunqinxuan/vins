@@ -4,9 +4,9 @@
 #
 # Email: sunqinxuan@outlook.com
 #
-# Last modified: 2023-06-13 10:41
+# Last modified:	2023-08-11 09:22
 #
-# Filename: dataflow.hpp
+# Filename:		dataflow.hpp
 #
 # Description:
 #
@@ -24,6 +24,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/image_encodings.h>
+#include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 
 #include <deque>
@@ -40,25 +41,21 @@
 //#include <yaml-cpp/yaml.h>
 
 #include "dataflow/camera_visualization.hpp"
-#include "frontend/feature_manager.hpp"
 #include "tools/geometry.hpp"
 #include "tools/type_redefine.hpp"
+#include "vio/feature_manager.hpp"
 
 namespace vslam {
 class DataFlow {
 public:
-  DataFlow(ros::NodeHandle &nh, std::string work_space_path);
+  DataFlow(ros::NodeHandle &nh, std::string config_file_path);
   ~DataFlow() { thread_.join(); }
 
   // bool Run();
 
   void start();
+
   bool getImageData(double &time, cv::Mat &img0, cv::Mat &img1);
-  // bool getPreintIMUData(
-  //    const double time,
-  //    std::pair<double,
-  //              std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>>>
-  //        &imu_interval);
   bool
   getIMUInterval(const double t0, const double t1,
                  std::vector<std::pair<double, Eigen::Matrix<double, 6, 1>>>
@@ -72,6 +69,17 @@ public:
   void pubCameraPose(const double t, const NavState &nav_state,
                      const Eigen::Isometry3d &Tic0,
                      const Eigen::Isometry3d &Tic1, const bool is_initialized);
+  void pubPointCloud(const double t, const std::vector<NavState> &nav_states,
+                     const Eigen::Isometry3d &Tic0,
+                     const std::list<FeaturePerId> &feature);
+  void pubKeyframe(const double t, const std::vector<NavState> &nav_states,
+                   const Eigen::Isometry3d &Tic0,
+                   const std::list<FeaturePerId> &feature,
+                   const bool is_initialized, const bool is_margin_old);
+  void pubTF(const double t, const std::vector<NavState> &nav_states,
+             const Eigen::Isometry3d &Tic0, const bool is_initialized);
+
+  bool useIMU() { return use_imu_; }
 
 private:
   void process();
@@ -91,6 +99,8 @@ private:
   //	Eigen::Quaterniond deltaQ(const Eigen::Vector3d &theta);
 
 private:
+  bool use_imu_ = true;
+
   std::mutex buff_mutex_;
   std::thread thread_;
 
@@ -103,6 +113,7 @@ private:
   std::deque<sensor_msgs::ImuConstPtr> imu_msg_buf_;
 
   double prev_time_ = -1, cur_time_ = -1;
+  int window_size_ = 10;
 
   std::deque<std::pair<double, cv::Mat>> img0_buf_;
   std::deque<std::pair<double, cv::Mat>> img1_buf_;
@@ -125,6 +136,8 @@ private:
   ros::Publisher pub_camera_pose_;
   ros::Publisher pub_camera_pose_visual_;
   ros::Publisher pub_point_cloud_, pub_margin_cloud_;
+  ros::Publisher pub_keyframe_pose_, pub_keyframe_point_;
+  ros::Publisher pub_extrinsic_;
 };
 } // namespace vslam
 

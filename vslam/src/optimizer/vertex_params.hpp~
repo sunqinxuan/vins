@@ -29,12 +29,11 @@ using Vector1d = Eigen::Matrix<double, 1, 1>;
 
 class VertexParamNavState {
 public:
-  VertexParamNavState() 
-	{
-		pose.setZero();
-		pose(6)=1.0;
-		vel_bias.setZero();
-	}
+  VertexParamNavState() {
+    pose.setZero();
+    pose(6) = 1.0;
+    vel_bias.setZero();
+  }
   void setValues(const NavState &nav_state, const IMUBias &bias) {
     pose(0) = nav_state.position().x();
     pose(1) = nav_state.position().y();
@@ -59,10 +58,10 @@ public:
 
 class VertexParamCameraEx {
 public:
-  VertexParamCameraEx(){
-		pose.setZero();
-		pose(6)=1.0;
-	}
+  VertexParamCameraEx() {
+    pose.setZero();
+    pose(6) = 1.0;
+  }
   void setValues(const Eigen::Isometry3d &Tic) {
     pose(0) = Tic.translation().x();
     pose(1) = Tic.translation().y();
@@ -82,7 +81,7 @@ public:
 
 class VertexParamFeature {
 public:
-  VertexParamFeature():depth(0.0){}
+  VertexParamFeature() : depth(0.0) {}
   void setValues(const double d) { depth(0) = d; }
 
   Vector1d depth;

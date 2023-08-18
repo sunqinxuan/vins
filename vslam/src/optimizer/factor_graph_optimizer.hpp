@@ -4,7 +4,7 @@
 #
 # Email: sunqinxuan@outlook.com
 #
-# Last modified:	2023-07-13 10:48
+# Last modified:	2023-08-11 09:52
 #
 # Filename:		factor_graph_optimizer.hpp
 #
@@ -40,7 +40,7 @@ public:
   FactorGraphOptimizer() = delete;
   FactorGraphOptimizer(const int num_iter, const double max_time,
                        const bool debug, const double sigma,
-                       const int window_size);
+                       const int window_size, bool use_imu);
   ~FactorGraphOptimizer();
 
   void initGraph();
@@ -53,6 +53,9 @@ public:
 
   void setVertices(const std::vector<NavState> &nav_states,
                    const std::vector<IMUBias> &imu_bias,
+                   const Eigen::Isometry3d &Tic0, const Eigen::Isometry3d &Tic1,
+                   const Eigen::VectorXd &depth_vec);
+  void setVertices(const std::vector<NavState> &nav_states,
                    const Eigen::Isometry3d &Tic0, const Eigen::Isometry3d &Tic1,
                    const Eigen::VectorXd &depth_vec);
 
@@ -137,6 +140,7 @@ public:
   }
 
 private:
+  bool use_imu_;
   int max_num_iterations_ = 10;
   double max_solver_time_ = 0.05;
   bool minimizer_progress_to_stdout_ = false;
