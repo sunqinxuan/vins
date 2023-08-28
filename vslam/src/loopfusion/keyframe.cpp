@@ -103,12 +103,12 @@ void KeyFrame::loadConfigFile(std::string config_file_path) {
   config["debug_image"] >> debug_image_;
 
   brief_pattern_file_ = config_file_path + "brief_pattern.yml";
-  std::cout << "brief_pattern_file: " << brief_pattern_file_ << std::endl;
+  // std::cout << "brief_pattern_file: " << brief_pattern_file_ << std::endl;
 
   std::string cam0_file;
   config["cam0_calib"] >> cam0_file;
   std::string cam0_file_path = config_file_path + cam0_file;
-  std::cout << "cam0_file_path: " << cam0_file_path << std::endl;
+  // std::cout << "cam0_file_path: " << cam0_file_path << std::endl;
   m_camera_ = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(
       cam0_file_path.c_str());
 
@@ -289,6 +289,8 @@ void KeyFrame::PnPRANSAC(const vector<cv::Point2f> &matched_2d_old_norm,
 
 bool KeyFrame::findConnection(KeyFrame *old_kf) {
   TicToc tmp_t;
+	cout<<"-----------------------------------------"<<endl;
+	cout<<"------------ findConnection -------------"<<endl;
   // printf("find Connection\n");
   vector<cv::Point2f> matched_2d_cur, matched_2d_old;
   vector<cv::Point2f> matched_2d_cur_norm, matched_2d_old_norm;
@@ -437,6 +439,8 @@ reduceVector(matched_id, status);
   double relative_yaw;
   if ((int)matched_2d_cur.size() > MIN_LOOP_NUM) {
     status.clear();
+		cout<<"tic = "<<Tic0_calib_.translation().transpose()<<endl;
+		cout<<"qic = "<<endl<<Tic0_calib_.linear()<<endl;
     PnPRANSAC(matched_2d_old_norm, matched_3d, status, PnP_T_old, PnP_R_old);
     reduceVector(matched_2d_cur, status);
     reduceVector(matched_2d_old, status);
@@ -483,18 +487,16 @@ reduceVector(matched_id, status);
               1, cv::Scalar(255), 3);
       cv::vconcat(notation, loop_match_img, loop_match_img);
 
-      /*
-      ostringstream path;
-      path <<  "/home/tony-ws1/raw_data/loop_image/"
-              << index << "-"
-              << old_kf->index << "-" << "3pnp_match.jpg";
-      cv::imwrite( path.str().c_str(), loop_match_img);
-      */
+      //ostringstream path;
+      //path <<  "/home/sun/vins_sqx/output/"
+      //        << index << "-"
+      //        << old_kf->index << "-" << "3pnp_match.jpg";
+      //cv::imwrite( path.str().c_str(), loop_match_img);
+
       if ((int)matched_2d_cur.size() > MIN_LOOP_NUM) {
-        /*
-        cv::imshow("loop connection",loop_match_img);
-        cv::waitKey(10);
-        */
+        //cv::imshow("loop connection sqx",loop_match_img);
+        //cv::waitKey(10);
+
         cv::Mat thumbimage;
         cv::resize(loop_match_img, thumbimage,
                    cv::Size(loop_match_img.cols / 2, loop_match_img.rows / 2));
@@ -509,13 +511,17 @@ reduceVector(matched_id, status);
   }
 
   if ((int)matched_2d_cur.size() > MIN_LOOP_NUM) {
+		cout<<"PnP_T_old = "<<PnP_T_old.transpose()<<endl;
+		cout<<"PnP_R_old = "<<endl<<PnP_R_old<<endl;
+		cout<<"origin_vio_T = "<<origin_vio_T.transpose()<<endl;
+		cout<<"origin_vio_R = "<<endl<<origin_vio_R<<endl;
     relative_t = PnP_R_old.transpose() * (origin_vio_T - PnP_T_old);
     relative_q = PnP_R_old.transpose() * origin_vio_R;
     relative_yaw = Converter::normalizeAngle(
         Converter::R2ypr(origin_vio_R).x() - Converter::R2ypr(PnP_R_old).x());
-    // printf("PNP relative\n");
-    // cout << "pnp relative_t " << relative_t.transpose() << endl;
-    // cout << "pnp relative_yaw " << relative_yaw << endl;
+    printf("PNP relative\n");
+    cout << "pnp relative_t " << relative_t.transpose() << endl;
+    cout << "pnp relative_yaw " << relative_yaw << endl;
     if (abs(relative_yaw) < 30.0 && relative_t.norm() < 20.0) {
 
       has_loop = true;
@@ -523,14 +529,16 @@ reduceVector(matched_id, status);
       loop_info << relative_t.x(), relative_t.y(), relative_t.z(),
           relative_q.w(), relative_q.x(), relative_q.y(), relative_q.z(),
           relative_yaw;
-      // cout << "pnp relative_t " << relative_t.transpose() << endl;
-      // cout << "pnp relative_q " << relative_q.w() << " " <<
-      // relative_q.vec().transpose() << endl;
+      cout << "pnp relative_t " << relative_t.transpose() << endl;
+      cout << "pnp relative_q " << relative_q.w() << " "
+           << relative_q.vec().transpose() << endl;
+			cout<<"-----------------------------------------"<<endl;
       return true;
     }
   }
-  // printf("loop final use num %d %lf--------------- \n",
-  // (int)matched_2d_cur.size(), t_match.toc());
+  printf("loop final use num %d %lf--------------- \n",
+         (int)matched_2d_cur.size(), t_match.toc());
+	cout<<"-----------------------------------------"<<endl;
   return false;
 }
 

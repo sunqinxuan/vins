@@ -3,5 +3,6 @@
     <param name="work_space_path" type="string" value="$(find vslam)" />
     <node pkg="rviz"  type="rviz"  name="rviz"  args="-d $(find vslam)/rviz/vslam.rviz"></node>
     <node pkg="vslam"  type="vio_node" name="vio_node" output="screen"></node>
+    <node pkg="vslam"  type="loopfusion_node" name="loopfusion_node" output="screen"></node>
     <!-- launch-prefix="xterm -e gdb -ex run - -args" -->
 </launch>

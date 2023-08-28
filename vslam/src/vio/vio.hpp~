@@ -4,16 +4,57 @@
 #
 # Email: sunqinxuan@outlook.com
 #
-# Last modified:	2023-08-11 09:20
+# Last modified:	2023-08-14 14:41
 #
-# Filename:		frontend.hpp
+# Filename:		vio.hpp
 #
 # Description:
 #
 ************************************************/
 
-#ifndef VSLAM_FRONTEND_HPP_
-#define VSLAM_FRONTEND_HPP_
+/*! \mainpage VINS Library
+ *
+ * VINS library for C++:
+ * Visual-Inertial navigation system.
+ *
+ * Written by Qinxuan Sun,
+ * Zhejiang Lab
+ *
+ * Check my github to obtain updates: https://github.com/sunqinxuan/vins
+ *
+ * \section requirements Requirements
+ * This library requires the Ceres and OpenCV libraries.
+ *
+ * \section citation Citation
+ * If you use this software in academic works, please cite:
+ <pre>
+   @@ARTICLE{SunTIM2021,
+    author={Sun, Qinxuan and Yuan, Jing and Zhang, Xuebo},
+    journal={IEEE Transactions on Instrumentation and Measurement},
+    title={IT-HYFAO-VO: Interpretation Tree-Based VO With Hybrid Feature Association and Optimization},
+    year={2021},
+    volume={70},
+    number={},
+    pages={1--18},
+    doi={10.1109/TIM.2021.3107058}
+  }
+ </pre>
+ *
+ * \section license License
+ * This file is licensed under a Creative Commons
+ * Attribution-NonCommercial-ShareAlike 3.0 license.
+ * This file can be freely used and users can use, download and edit this file
+ * provided that credit is attributed to the original author. No users are
+ * permitted to use this file for commercial purposes unless explicit permission
+ * is given by the original author. Derivative works must be licensed using the
+ * same or similar license.
+ * Check http://creativecommons.org/licenses/by-nc-sa/3.0/ to obtain further
+ * details.
+ *
+ */
+
+#ifndef VSLAM_VIO_HPP_
+#define VSLAM_VIO_HPP_
 
 #include <deque>
 #include <eigen3/Eigen/Dense>
@@ -27,26 +68,24 @@
 #include <set>
 #include <string>
 #include <unordered_map>
-//#include <gtsam/navigation/ImuBias.h>
-//#include <gtsam/navigation/CombinedImuFactor.h>
 
 #include "dataflow/dataflow.hpp"
-#include "frontend/feature_manager.hpp"
-#include "frontend/feature_tracker.hpp"
-#include "frontend/initial_alignment.hpp"
-#include "frontend/initial_ex_rotation.hpp"
 #include "optimizer/factor_graph_optimizer.hpp"
 #include "optimizer/imu_preintegration.hpp"
 #include "tools/converter.hpp"
 #include "tools/geometry.hpp"
 #include "tools/message_print.hpp"
 #include "tools/type_redefine.hpp"
+#include "vio/feature_manager.hpp"
+#include "vio/feature_tracker.hpp"
+#include "vio/initial_alignment.hpp"
+#include "vio/initial_ex_rotation.hpp"
 
 namespace vslam {
 
-class FrontEnd {
+class VIOdometry {
 public:
-  FrontEnd(ros::NodeHandle &nh, std::string config_file_path);
+  VIOdometry(ros::NodeHandle &nh, std::string config_file_path);
 
   void run();
   void clearState();
@@ -70,7 +109,7 @@ private:
                            const Eigen::Vector3d &uvi,
                            const Eigen::Vector3d &uvj);
 
-  //bool flag_ = false;
+  // bool flag_ = false;
 
 private:
   enum EstimateExtrinsic { FIXED = 0, OPTIMIZE = 1, ESTIMATE = 2 };

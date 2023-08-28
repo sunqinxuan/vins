@@ -16,6 +16,7 @@
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include <eigen3/Eigen/Dense>
+#include <fstream>
 #include <geometry_msgs/PointStamped.h>
 #include <mutex>
 #include <nav_msgs/Odometry.h>

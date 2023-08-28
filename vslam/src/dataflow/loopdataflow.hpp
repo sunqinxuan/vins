@@ -32,6 +32,7 @@
 #include <visualization_msgs/Marker.h>
 
 #include "dataflow/camera_visualization.hpp"
+#include "loopfusion/keyframe.hpp"
 #include "loopfusion/pose_graph.hpp"
 #include "tools/geometry.hpp"
 #include "tools/message_print.hpp"
@@ -51,6 +52,14 @@ public:
   void start();
 
   Eigen::Isometry3d getTic0() const { return Tic0_calib_; }
+  // int getSequence() const { return sequence_; }
+  void setPrevTranslation(Eigen::Vector3d t) { prev_translation_ = t; }
+
+  bool getImagePosePoint(double &time, cv::Mat &img, Eigen::Isometry3d &pose,
+                         FramePoint &point);
+  void updateVIO(std::shared_ptr<PoseGraph> pose_graph_ptr_);
+  bool getNewSeq() const { return new_seq_; }
+  void setNewSeq(bool n) { new_seq_ = n; }
 
 private:
   void process();
@@ -67,6 +76,12 @@ private:
   keyframe_point_callback(const sensor_msgs::PointCloudConstPtr &point_msg);
   void margin_point_callback(const sensor_msgs::PointCloudConstPtr &point_msg);
 
+  // void newSequence();
+  cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg);
+  void getPointFromMsg(const sensor_msgs::PointCloudConstPtr &point_msg,
+                       FramePoint &point);
+  void clearBuff();
+
 private:
   std::mutex buff_mutex_;
   std::mutex proc_mutex_;
@@ -78,8 +93,12 @@ private:
   std::deque<nav_msgs::Odometry::ConstPtr> pose_msg_buf_;
   std::deque<sensor_msgs::PointCloudConstPtr> point_msg_buf_;
 
+  std::deque<std::pair<double, cv::Mat>> img0_buf_;
+  std::deque<std::pair<double, Eigen::Isometry3d>> pose_buf_;
+  std::deque<FramePoint> point_buf_;
+
   CameraPoseVisualization cameraposevisual;
-  std::shared_ptr<PoseGraph> pose_graph_ptr_;
+  // std::shared_ptr<PoseGraph> pose_graph_ptr_;
 
   ros::Subscriber sub_image_;
   ros::Subscriber sub_vio_;
@@ -92,6 +111,17 @@ private:
   ros::Publisher pub_camera_pose_visual_;
   ros::Publisher pub_point_cloud_;
   ros::Publisher pub_margin_cloud_;
+
+  int skip_first_cnt_ = 0;
+  Eigen::Vector3d prev_translation_;
+  double prev_image_time_;
+  // int sequence_ = 1;
+  bool new_seq_ = false;
+
+  Eigen::Vector3d t_drift;
+  Eigen::Matrix3d r_drift;
+  Eigen::Vector3d w_t_vio;
+  Eigen::Matrix3d w_r_vio;
 };
 } // namespace vslam
 

@@ -1,3 +1,16 @@
+/***********************************************
+#
+# Author: Sun Qinxuan
+#
+# Email: sunqinxuan@outlook.com
+#
+# Last modified: 2023-08-21 10:00
+#
+# Filename: keyframe.hpp
+#
+# Description:
+#
+************************************************/
 /*******************************************************
  * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science
  *and Technology
@@ -40,6 +53,22 @@ namespace vslam {
 extern std::string CONFIG_FILE_PATH;
 extern ros::Publisher PUB_MATCH_IMG;
 extern Eigen::Isometry3d Tic0_calib_;
+
+class FramePoint {
+public:
+  void clear() {
+    point_3d.clear();
+    point_2d_uv.clear();
+    point_2d_normal.clear();
+    point_id.clear();
+  }
+
+  double timestamp;
+  std::vector<cv::Point3f> point_3d;
+  std::vector<cv::Point2f> point_2d_uv;
+  std::vector<cv::Point2f> point_2d_normal;
+  std::vector<double> point_id;
+};
 
 class BriefExtractor {
 public:

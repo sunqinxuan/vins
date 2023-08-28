@@ -28,6 +28,7 @@
 //#include "optimizer/factor_graph_optimizer.hpp"
 //#include "tools/converter.hpp"
 //#include "tools/geometry.hpp"
+#include "loopfusion/keyframe.hpp"
 #include "loopfusion/pose_graph.hpp"
 #include "tools/message_print.hpp"
 //#include "tools/type_redefine.hpp"
@@ -42,8 +43,8 @@ public:
   void clearState();
 
 private:
-  void startTracking();
-  void trackImage(double t, const cv::Mat &img0, const cv::Mat &img1);
+  // void startTracking();
+  // void trackImage(double t, const cv::Mat &img0, const cv::Mat &img1);
 
 private:
   std::thread thread_track_;
@@ -53,6 +54,9 @@ private:
   std::shared_ptr<LoopDataFlow> dataflow_ptr_;
   std::shared_ptr<PoseGraph> pose_graph_ptr_;
   std::shared_ptr<KeyFrame> key_frame_ptr_;
+
+  int frame_idx_ = 0;
+  int sequence_ = 1;
 };
 } // namespace vslam
 

@@ -34,6 +34,7 @@
 #include "loopfusion/ThirdParty/DVision/DVision.h"
 #include "loopfusion/keyframe.hpp"
 #include "tools/converter.hpp"
+#include "tools/message_print.hpp"
 #include "tools/tic_toc.hpp"
 
 #define SHOW_S_EDGE false
@@ -98,10 +99,10 @@ private:
   ros::Publisher pub_pose_graph;
   ros::Publisher pub_path[10];
 
-  int  VISUALIZATION_SHIFT_X = 0;
-  int  VISUALIZATION_SHIFT_Y = 0;
-	std::string vins_result_path_;
-	std::string pose_graph_save_path_;
+  int VISUALIZATION_SHIFT_X = 0;
+  int VISUALIZATION_SHIFT_Y = 0;
+  std::string vins_result_path_;
+  std::string pose_graph_save_path_;
   bool debug_image_ = false;
 };
 

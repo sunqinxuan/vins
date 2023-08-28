@@ -17,8 +17,7 @@
 namespace vslam {
 
 LoopDataFlow::LoopDataFlow(ros::NodeHandle &nh, std::string config_file_path,
-                           std::shared_ptr<PoseGraph> pose_graph_ptr)
-    : pose_graph_ptr_(pose_graph_ptr) {
+                           std::shared_ptr<PoseGraph> pose_graph_ptr) {
 
   std::string config_file = config_file_path + "config.yaml";
   cv::FileStorage config(config_file, cv::FileStorage::READ);
@@ -31,23 +30,32 @@ LoopDataFlow::LoopDataFlow(ros::NodeHandle &nh, std::string config_file_path,
       nh.subscribe(cam0_topic, 2000, &LoopDataFlow::cam0_callback, this);
   sub_vio_ =
       nh.subscribe("/vio/odometry", 2000, &LoopDataFlow::vio_callback, this);
-  sub_extrinsic_ = nh.subscribe(
-      "/vio/extrinsic", 2000, &LoopDataFlow::extrinsic_callback, this);
-  sub_keyframe_pose_ = nh.subscribe("/vio/keyframe_pose", 2000, &LoopDataFlow::keyframe_pose_callback,this); 
-	sub_keyframe_point_ = nh.subscribe("/vio/keyframe_point", 2000, &LoopDataFlow::keyframe_point_callback,this);
-  sub_margin_point_ = nh.subscribe("/vio/margin_cloud", 2000, &LoopDataFlow::margin_point_callback,this);
+  sub_extrinsic_ = nh.subscribe("/vio/extrinsic", 2000,
+                                &LoopDataFlow::extrinsic_callback, this);
+  sub_keyframe_pose_ = nh.subscribe(
+      "/vio/keyframe_pose", 2000, &LoopDataFlow::keyframe_pose_callback, this);
+  sub_keyframe_point_ =
+      nh.subscribe("/vio/keyframe_point", 2000,
+                   &LoopDataFlow::keyframe_point_callback, this);
+  sub_margin_point_ = nh.subscribe("/vio/margin_cloud", 2000,
+                                   &LoopDataFlow::margin_point_callback, this);
 
   pub_odometry_rect_ =
       nh.advertise<nav_msgs::Odometry>("/loopfusion/odometry_rect", 1000);
 
   pub_camera_pose_visual_ = nh.advertise<visualization_msgs::MarkerArray>(
       "/loopfusion/camera_pose_visual", 1000);
-   pub_point_cloud_ = nh.advertise<sensor_msgs::PointCloud>("/loopfusion/point_cloud_loop_rect", 1000);
-   pub_margin_cloud_ = nh.advertise<sensor_msgs::PointCloud>("/loopfusion/margin_cloud_loop_rect", 1000);
+  pub_point_cloud_ = nh.advertise<sensor_msgs::PointCloud>(
+      "/loopfusion/point_cloud_loop_rect", 1000);
+  pub_margin_cloud_ = nh.advertise<sensor_msgs::PointCloud>(
+      "/loopfusion/margin_cloud_loop_rect", 1000);
 
   cameraposevisual = CameraPoseVisualization(1, 0, 0, 1);
   cameraposevisual.setScale(0.1);
   cameraposevisual.setLineWidth(0.01);
+
+  prev_translation_ = Eigen::Vector3d(-100, -100, -100);
+  prev_image_time_ = -1;
 }
 
 void LoopDataFlow::start() {
@@ -72,31 +80,238 @@ void LoopDataFlow::process() {
 }
 
 bool LoopDataFlow::hasNewData() {
-  // if (use_imu_) {
-  //  if (img0_msg_buf_.empty() || img1_msg_buf_.empty() ||
-  //  imu_msg_buf_.empty())
-  //    return false;
-  //  else
-  //    return true;
-  //} else {
-  //  if (img0_msg_buf_.empty() || img1_msg_buf_.empty())
-  //    return false;
-  //  else
-  return true;
-  //}
+  if (img0_msg_buf_.empty() || pose_msg_buf_.empty() || point_msg_buf_.empty())
+    return false;
+  else
+    return true;
 }
 
 bool LoopDataFlow::handleData() {
-  // std::unique_lock<std::mutex> lock(buff_mutex_);
+  std::unique_lock<std::mutex> lock(buff_mutex_);
+
+  //	cout<<endl;
+  //	cout<<"+++ img0_msg_buf_:"<<endl;
+  //	for(auto &m:img0_msg_buf_)
+  //	{
+  //		cout<<fixed<<m->header.stamp.toSec()<<endl;
+  //	}
+  //	cout<<"+++ pose_msg_buf_:"<<endl;
+  //	for(auto &m:pose_msg_buf_)
+  //	{
+  //		cout<<fixed<<m->header.stamp.toSec()<<endl;
+  //	}
+  //	cout<<"+++ point_msg_buf_:"<<endl;
+  //	for(auto &m:point_msg_buf_)
+  //	{
+  //		cout<<fixed<<m->header.stamp.toSec()<<endl;
+  //	}
+  //	cout<<endl;
+
+  sensor_msgs::ImageConstPtr image_msg = NULL;
+  sensor_msgs::PointCloudConstPtr point_msg = NULL;
+  nav_msgs::Odometry::ConstPtr pose_msg = NULL;
+
+  if (img0_msg_buf_.front()->header.stamp.toSec() >
+      pose_msg_buf_.front()->header.stamp.toSec()) {
+    pose_msg_buf_.pop_front();
+    printf("throw pose msg at beginning\n");
+    return false;
+  } else if (img0_msg_buf_.front()->header.stamp.toSec() >
+             point_msg_buf_.front()->header.stamp.toSec()) {
+    point_msg_buf_.pop_front();
+    printf("throw point msg at beginning\n");
+    return false;
+  } else if (img0_msg_buf_.back()->header.stamp.toSec() >=
+                 pose_msg_buf_.front()->header.stamp.toSec() &&
+             point_msg_buf_.back()->header.stamp.toSec() >=
+                 pose_msg_buf_.front()->header.stamp.toSec()) {
+    pose_msg = pose_msg_buf_.front();
+    pose_msg_buf_.pop_front();
+
+    while (!pose_msg_buf_.empty())
+      pose_msg_buf_.pop_front();
+
+    while (img0_msg_buf_.front()->header.stamp.toSec() <
+           pose_msg->header.stamp.toSec())
+      img0_msg_buf_.pop_front();
+    image_msg = img0_msg_buf_.front();
+    img0_msg_buf_.pop_front();
+
+    while (point_msg_buf_.front()->header.stamp.toSec() <
+           pose_msg->header.stamp.toSec())
+      point_msg_buf_.pop_front();
+    point_msg = point_msg_buf_.front();
+    point_msg_buf_.pop_front();
+  }
+  //	else {
+  //    return false;
+  //  }
+
+  if (skip_first_cnt_ < 10) {
+    skip_first_cnt_++;
+    return false;
+  }
+
+  Eigen::Isometry3d pose;
+  pose.translation() = Eigen::Vector3d(pose_msg->pose.pose.position.x,
+                                       pose_msg->pose.pose.position.y,
+                                       pose_msg->pose.pose.position.z);
+  pose.linear() = Eigen::Quaterniond(pose_msg->pose.pose.orientation.w,
+                                     pose_msg->pose.pose.orientation.x,
+                                     pose_msg->pose.pose.orientation.y,
+                                     pose_msg->pose.pose.orientation.z)
+                      .toRotationMatrix();
+
+  //	cout<<"+++++++++++++++++++++++"<<endl;
+  //	cout<<"time: "<<fixed<<pose_msg->header.stamp.toSec()<<endl;
+  //	cout<<"trans: "<<pose.translation().transpose()<<endl;
+  //	cout<<"prev_trans: "<<prev_translation_.transpose()<<endl;
+  //	cout<<"norm: "<<(pose.translation() - prev_translation_).norm()<<endl;
+
+  if ((pose.translation() - prev_translation_).norm() > 0) {
+    pose_buf_.push_back(std::make_pair(pose_msg->header.stamp.toSec(), pose));
+
+    cv::Mat img = getImageFromMsg(image_msg);
+    img0_buf_.push_back(std::make_pair(image_msg->header.stamp.toSec(), img));
+
+    FramePoint point;
+    getPointFromMsg(point_msg, point);
+    point_buf_.push_back(point);
+
+    // cout << "**********************************************" << endl;
+    // printf(" pose time %f \n", pose_buf_.back().first);
+    // printf(" image time %f \n", img0_buf_.back().first);
+    // printf(" point time %f \n", point_buf_.back().timestamp);
+  }
 
   return true;
+}
+
+void LoopDataFlow::updateVIO(const std::shared_ptr<PoseGraph> pose_graph_ptr_) {
+  t_drift = pose_graph_ptr_->t_drift;
+  r_drift = pose_graph_ptr_->r_drift;
+  w_t_vio = pose_graph_ptr_->w_t_vio;
+  w_r_vio = pose_graph_ptr_->w_r_vio;
+}
+
+bool LoopDataFlow::getImagePosePoint(double &time, cv::Mat &img,
+                                     Eigen::Isometry3d &pose,
+                                     FramePoint &point) {
+  if (img0_buf_.empty() || pose_buf_.empty() || point_buf_.empty())
+    return false;
+  std::unique_lock<std::mutex> lock(buff_mutex_);
+
+  time = pose_buf_.front().first;
+  pose = pose_buf_.front().second;
+  pose_buf_.pop_front();
+
+  img = img0_buf_.front().second;
+  img0_buf_.pop_front();
+
+  point.clear();
+  point = point_buf_.front();
+  point_buf_.pop_front();
+  return true;
+}
+
+cv::Mat
+LoopDataFlow::getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg) {
+  cv_bridge::CvImageConstPtr ptr;
+  if (img_msg->encoding == "8UC1") {
+    sensor_msgs::Image img;
+    img.header = img_msg->header;
+    img.height = img_msg->height;
+    img.width = img_msg->width;
+    img.is_bigendian = img_msg->is_bigendian;
+    img.step = img_msg->step;
+    img.data = img_msg->data;
+    img.encoding = "mono8";
+    ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
+  } else
+    ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+
+  cv::Mat img = ptr->image.clone();
+  return img;
+}
+
+void LoopDataFlow::getPointFromMsg(
+    const sensor_msgs::PointCloudConstPtr &point_msg, FramePoint &point) {
+  point.timestamp = point_msg->header.stamp.toSec();
+  for (size_t i = 0; i < point_msg->points.size(); i++) {
+    cv::Point3f p_3d;
+    p_3d.x = point_msg->points[i].x;
+    p_3d.y = point_msg->points[i].y;
+    p_3d.z = point_msg->points[i].z;
+    point.point_3d.push_back(p_3d);
+
+    cv::Point2f p_2d_uv, p_2d_normal;
+    double p_id;
+    p_2d_normal.x = point_msg->channels[i].values[0];
+    p_2d_normal.y = point_msg->channels[i].values[1];
+    p_2d_uv.x = point_msg->channels[i].values[2];
+    p_2d_uv.y = point_msg->channels[i].values[3];
+    p_id = point_msg->channels[i].values[4];
+    point.point_2d_normal.push_back(p_2d_normal);
+    point.point_2d_uv.push_back(p_2d_uv);
+    point.point_id.push_back(p_id);
+
+    // printf("u %f, v %f \n", p_2d_uv.x, p_2d_uv.y);
+  }
+}
+
+// void LoopDataFlow::newSequence() {
+//  INFO("[LoopDataFlow] new sequence!");
+//  sequence_++;
+//  INFO("[LoopDataFlow] sequence cnt: ", sequence_);
+//  if (sequence_ > 5) {
+//    WARNING("[LoopDataFlow] only support 5 sequences!");
+//    ROS_BREAK();
+//  }
+//
+//  pose_graph_ptr_->posegraph_visualization->reset();
+//  pose_graph_ptr_->publish();
+//
+//  buff_mutex_.lock();
+//  while (!img0_msg_buf_.empty())
+//    img0_msg_buf_.pop_front();
+//  while (!point_msg_buf_.empty())
+//    point_msg_buf_.pop_front();
+//  while (!pose_msg_buf_.empty())
+//    pose_msg_buf_.pop_front();
+//  // while(!odometry_buf.empty())
+//  // odometry_buf.pop();
+//  buff_mutex_.unlock();
+//}
+
+void LoopDataFlow::clearBuff() {
+  buff_mutex_.lock();
+  while (!img0_msg_buf_.empty())
+    img0_msg_buf_.pop_front();
+  while (!point_msg_buf_.empty())
+    point_msg_buf_.pop_front();
+  while (!pose_msg_buf_.empty())
+    pose_msg_buf_.pop_front();
+  // while(!odometry_buf.empty())
+  // odometry_buf.pop();
+  buff_mutex_.unlock();
 }
 
 void LoopDataFlow::cam0_callback(const sensor_msgs::ImageConstPtr &img_msg) {
   buff_mutex_.lock();
   img0_msg_buf_.push_back(img_msg);
-  DEBUG("[loopfusion] receive img0!");
+  // DEBUG("[loopfusion] receive img0! ", img_msg->header.stamp.toSec());
   buff_mutex_.unlock();
+
+  if (prev_image_time_ == -1) {
+    prev_image_time_ = img_msg->header.stamp.toSec();
+  } else if (img_msg->header.stamp.toSec() - prev_image_time_ > 1.0 ||
+             img_msg->header.stamp.toSec() < prev_image_time_) {
+    WARNING("image discontinuous! detect a new sequence!");
+    // newSequence();
+    new_seq_ = true;
+    clearBuff();
+  }
+  prev_image_time_ = img_msg->header.stamp.toSec();
 }
 
 void LoopDataFlow::vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg) {
@@ -110,11 +325,11 @@ void LoopDataFlow::vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg) {
   vio_q.y() = pose_msg->pose.pose.orientation.y;
   vio_q.z() = pose_msg->pose.pose.orientation.z;
 
-  vio_t = pose_graph_ptr_->w_r_vio * vio_t + pose_graph_ptr_->w_t_vio;
-  vio_q = pose_graph_ptr_->w_r_vio * vio_q;
+  vio_t = w_r_vio * vio_t + w_t_vio;
+  vio_q = w_r_vio * vio_q;
 
-  vio_t = pose_graph_ptr_->r_drift * vio_t + pose_graph_ptr_->t_drift;
-  vio_q = pose_graph_ptr_->r_drift * vio_q;
+  vio_t = r_drift * vio_t + t_drift;
+  vio_q = r_drift * vio_q;
 
   nav_msgs::Odometry odometry;
   odometry.header = pose_msg->header;
@@ -151,79 +366,81 @@ void LoopDataFlow::extrinsic_callback(
                                             pose_msg->pose.pose.orientation.y,
                                             pose_msg->pose.pose.orientation.z)
                              .toRotationMatrix();
+	DEBUG("extrinsic_callback");
+		cout<<"tic = "<<Tic0_calib_.translation().transpose()<<endl;
+		cout<<"qic = "<<endl<<Tic0_calib_.linear()<<endl;
   proc_mutex_.unlock();
 }
 
-void LoopDataFlow::keyframe_pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
-{
-    //ROS_INFO("pose_callback!");
-    buff_mutex_.lock();
-    pose_msg_buf_.push(pose_msg);
-    buff_mutex_.unlock();
-    /*
-    printf("pose t: %f, %f, %f   q: %f, %f, %f %f \n", pose_msg->pose.pose.position.x,
-                                                       pose_msg->pose.pose.position.y,
-                                                       pose_msg->pose.pose.position.z,
-                                                       pose_msg->pose.pose.orientation.w,
-                                                       pose_msg->pose.pose.orientation.x,
-                                                       pose_msg->pose.pose.orientation.y,
-                                                       pose_msg->pose.pose.orientation.z);
-    */
+void LoopDataFlow::keyframe_pose_callback(
+    const nav_msgs::Odometry::ConstPtr &pose_msg) {
+  // ROS_INFO("pose_callback!");
+  buff_mutex_.lock();
+  pose_msg_buf_.push_back(pose_msg);
+  buff_mutex_.unlock();
+  /*
+  printf("pose t: %f, %f, %f   q: %f, %f, %f %f \n",
+  pose_msg->pose.pose.position.x, pose_msg->pose.pose.position.y,
+                                                     pose_msg->pose.pose.position.z,
+                                                     pose_msg->pose.pose.orientation.w,
+                                                     pose_msg->pose.pose.orientation.x,
+                                                     pose_msg->pose.pose.orientation.y,
+                                                     pose_msg->pose.pose.orientation.z);
+  */
 }
 
-void LoopDataFlow::keyframe_point_callback(const sensor_msgs::PointCloudConstPtr &point_msg)
-{
-    //ROS_INFO("point_callback!");
-    buff_mutex_.lock();
-    point_msg_buf_.push(point_msg);
-    buff_mutex_.unlock();
-    /*
-    for (unsigned int i = 0; i < point_msg->points.size(); i++)
-    {
-        printf("%d, 3D point: %f, %f, %f 2D point %f, %f \n",i , point_msg->points[i].x, 
-                                                     point_msg->points[i].y,
-                                                     point_msg->points[i].z,
-                                                     point_msg->channels[i].values[0],
-                                                     point_msg->channels[i].values[1]);
-    }
-    */
-    // for visualization
-    sensor_msgs::PointCloud point_cloud;
-    point_cloud.header = point_msg->header;
-    for (unsigned int i = 0; i < point_msg->points.size(); i++)
-    {
-        cv::Point3f p_3d;
-        p_3d.x = point_msg->points[i].x;
-        p_3d.y = point_msg->points[i].y;
-        p_3d.z = point_msg->points[i].z;
-        Eigen::Vector3d tmp = pose_graph_ptr_->r_drift * Eigen::Vector3d(p_3d.x, p_3d.y, p_3d.z) + pose_graph_ptr_->t_drift;
-        geometry_msgs::Point32 p;
-        p.x = tmp(0);
-        p.y = tmp(1);
-        p.z = tmp(2);
-        point_cloud.points.push_back(p);
-    }
-    pub_point_cloud_.publish(point_cloud);
+void LoopDataFlow::keyframe_point_callback(
+    const sensor_msgs::PointCloudConstPtr &point_msg) {
+  // ROS_INFO("point_callback!");
+  buff_mutex_.lock();
+  point_msg_buf_.push_back(point_msg);
+  buff_mutex_.unlock();
+  /*
+  for (unsigned int i = 0; i < point_msg->points.size(); i++)
+  {
+      printf("%d, 3D point: %f, %f, %f 2D point %f, %f \n",i ,
+  point_msg->points[i].x, point_msg->points[i].y, point_msg->points[i].z,
+                                                   point_msg->channels[i].values[0],
+                                                   point_msg->channels[i].values[1]);
+  }
+  */
+  // for visualization
+  sensor_msgs::PointCloud point_cloud;
+  point_cloud.header = point_msg->header;
+  for (unsigned int i = 0; i < point_msg->points.size(); i++) {
+    cv::Point3f p_3d;
+    p_3d.x = point_msg->points[i].x;
+    p_3d.y = point_msg->points[i].y;
+    p_3d.z = point_msg->points[i].z;
+    Eigen::Vector3d tmp =
+        r_drift * Eigen::Vector3d(p_3d.x, p_3d.y, p_3d.z) + t_drift;
+    geometry_msgs::Point32 p;
+    p.x = tmp(0);
+    p.y = tmp(1);
+    p.z = tmp(2);
+    point_cloud.points.push_back(p);
+  }
+  pub_point_cloud_.publish(point_cloud);
 }
 
-void LoopDataFlow::margin_point_callback(const sensor_msgs::PointCloudConstPtr &point_msg)
-{
-    sensor_msgs::PointCloud point_cloud;
-    point_cloud.header = point_msg->header;
-    for (unsigned int i = 0; i < point_msg->points.size(); i++)
-    {
-        cv::Point3f p_3d;
-        p_3d.x = point_msg->points[i].x;
-        p_3d.y = point_msg->points[i].y;
-        p_3d.z = point_msg->points[i].z;
-        Eigen::Vector3d tmp = pose_graph_ptr_->r_drift * Eigen::Vector3d(p_3d.x, p_3d.y, p_3d.z) + pose_graph_ptr_->t_drift;
-        geometry_msgs::Point32 p;
-        p.x = tmp(0);
-        p.y = tmp(1);
-        p.z = tmp(2);
-        point_cloud.points.push_back(p);
-    }
-    pub_margin_cloud_.publish(point_cloud);
+void LoopDataFlow::margin_point_callback(
+    const sensor_msgs::PointCloudConstPtr &point_msg) {
+  sensor_msgs::PointCloud point_cloud;
+  point_cloud.header = point_msg->header;
+  for (unsigned int i = 0; i < point_msg->points.size(); i++) {
+    cv::Point3f p_3d;
+    p_3d.x = point_msg->points[i].x;
+    p_3d.y = point_msg->points[i].y;
+    p_3d.z = point_msg->points[i].z;
+    Eigen::Vector3d tmp =
+        r_drift * Eigen::Vector3d(p_3d.x, p_3d.y, p_3d.z) + t_drift;
+    geometry_msgs::Point32 p;
+    p.x = tmp(0);
+    p.y = tmp(1);
+    p.z = tmp(2);
+    point_cloud.points.push_back(p);
+  }
+  pub_margin_cloud_.publish(point_cloud);
 }
 
 } // namespace vslam
